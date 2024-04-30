@@ -1,6 +1,6 @@
 --- postgresql-16.2/src/include/port/emscripten.h	2024-04-30 08:02:57.615354846 +0200
-+++ postgresql-16.2-wasm/src/include/port/emscripten.h	2024-04-30 08:19:46.344271323 +0200
-@@ -0,0 +1,174 @@
++++ postgresql-16.2-wasm/src/include/port/emscripten.h	2024-04-30 09:25:39.212661194 +0200
+@@ -0,0 +1,178 @@
 +/* src/include/port/emscripten.h */
 +
 +#ifndef I_EMSCRIPTEN
@@ -8,9 +8,6 @@
 +#define PGDLLIMPORT
 +
 +#include <emscripten.h>
-+
-+#define PG_MAIN_INCLUDE "/data/git/pg/pg_main.c"
-+#define PG_PLUGIN_INCLUDE "/data/git/pg/pg_plugin.h"
 +
 +/*
 + * https://github.com/electric-sql/postgres-wasm/pull/1/files#diff-6e542ba2eb1d83ef90e65cdc0912b51a295184701c7e3bd236937c43c4cac4b9R63
@@ -33,10 +30,17 @@
 +// force the name used with --single
 +#define WASM_USERNAME "postgres"
 +
-+#if !defined(WASM_PREFIX)
++#if defined(PREFIX)
 +#define xstr(s) str(s)
 +#define str(s) #s
-+#define WASM_PREFIX xstr(PREFIX)
++
++#   define WASM_PREFIX xstr(PREFIX)
++#   define PG_MAIN_INCLUDE  xstr(PATCH_MAIN)
++#   define PG_PLUGIN_INCLUDE  xstr(PATCH_PLUGIN)
++#else
++#   define WASM_PREFIX "/pgdata"
++#   define PG_MAIN_INCLUDE "/data/git/pg/pg_main.c"
++#   define PG_PLUGIN_INCLUDE "/data/git/pg/pg_plugin.h"
 +#endif
 +
 +#define PG_FORCE_DISABLE_INLINE

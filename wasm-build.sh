@@ -299,14 +299,24 @@ END
     export PATH=$(pwd)/bin:$PATH
 
 
-    export EMCC_CFLAGS="-sNO_EXIT_RUNTIME=1"
-    export EMCC_CFLAGS="-sEXIT_RUNTIME=1 -DEXIT_RUNTIME"
+    EMCC_CFLAGS="-sNO_EXIT_RUNTIME=1"
+    EMCC_CFLAGS="-sEXIT_RUNTIME=1 -DEXIT_RUNTIME"
 
 # export EMCC_CFLAGS="-lwebsocket.js -sPROXY_POSIX_SOCKETS -pthread -sPROXY_TO_PTHREAD $EMCC_CFLAGS"
 
     #  -sWASMFS
-    export EMCC_CFLAGS="-sNODERAWFS -sENVIRONMENT=node -sTOTAL_MEMORY=1GB -sSTACK_SIZE=5MB -sALLOW_TABLE_GROWTH -sALLOW_MEMORY_GROWTH -sGLOBAL_BASE=4MB $EMCC_CFLAGS"
-    export EMCC_CFLAGS="-DPREFIX=$PREFIX $EMCC_CFLAGS"
+    EMCC_CFLAGS="-sNODERAWFS -sENVIRONMENT=node -sTOTAL_MEMORY=1GB -sSTACK_SIZE=5MB -sALLOW_TABLE_GROWTH -sALLOW_MEMORY_GROWTH -sGLOBAL_BASE=4MB $EMCC_CFLAGS"
+    EMCC_CFLAGS="-DPREFIX=$PREFIX $EMCC_CFLAGS"
+
+    if $CI
+    then
+        EMCC_CFLAGS="-DPATCH_MAIN=/home/runner/work/pglite-build/pglite-build/pg_main.c $EMCC_CFLAGS"
+        EMCC_CFLAGS="-DPATCH_PLUGIN=/home/runner/work/pglite-build/pglite-build/pg_plugin.h  $EMCC_CFLAGS"
+    else
+        EMCC_CFLAGS="-DPATCH_MAIN=/data/git/pg/pg_main.c $EMCC_CFLAGS"
+        EMCC_CFLAGS="-DPATCH_PLUGIN=/data/git/pg/pg_plugin.h  $EMCC_CFLAGS"
+    fi
+
     export EMCC_CFLAGS="-Wno-macro-redefined -Wno-unused-function $EMCC_CFLAGS"
 
 
