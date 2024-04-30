@@ -1,0 +1,13 @@
+--- postgresql-16.2/src/backend/storage/ipc/ipc.c	2024-02-05 22:41:37.000000000 +0100
++++ postgresql-16.2-wasm/src/backend/storage/ipc/ipc.c	2024-04-29 08:49:02.300121222 +0200
+@@ -103,6 +103,10 @@
+ void
+ proc_exit(int code)
+ {
++#if defined(__EMSCRIPTEN__) || defined(__wasi__)
++    fprintf(stderr,"# proc_exit(%d) ignored at 107:%s\n",code, __FILE__);
++    return;
++#endif
+ 	/* not safe if forked by system(), etc. */
+ 	if (MyProcPid != (int) getpid())
+ 		elog(PANIC, "proc_exit() called in child process");

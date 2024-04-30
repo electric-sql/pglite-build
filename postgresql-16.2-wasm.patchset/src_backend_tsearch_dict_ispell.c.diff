@@ -1,0 +1,11 @@
+--- postgresql-16.2/src/backend/tsearch/dict_ispell.c	2024-02-05 22:41:37.000000000 +0100
++++ postgresql-16.2-wasm/src/backend/tsearch/dict_ispell.c	2024-04-29 14:57:24.372246209 +0200
+@@ -72,7 +72,7 @@
+ 				ereport(ERROR,
+ 						(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+ 						 errmsg("multiple StopWords parameters")));
+-			readstoplist(defGetString(defel), &(d->stoplist), lowerstr);
++			readstoplist(defGetString(defel), &(d->stoplist), pg_lowerstr);
+ 			stoploaded = true;
+ 		}
+ 		else

@@ -1,0 +1,53 @@
+--- postgresql-16.2/src/interfaces/libpq/fe-connect.c	2024-02-05 22:41:37.000000000 +0100
++++ postgresql-16.2-wasm/src/interfaces/libpq/fe-connect.c	2024-04-24 08:49:36.572534296 +0200
+@@ -1932,6 +1932,7 @@
+ static int
+ connectNoDelay(PGconn *conn)
+ {
++#if !defined(__EMSCRIPTEN__)
+ #ifdef	TCP_NODELAY
+ 	int			on = 1;
+ 
+@@ -1946,7 +1947,7 @@
+ 		return 0;
+ 	}
+ #endif
+-
++#endif
+ 	return 1;
+ }
+ 
+@@ -2067,6 +2068,9 @@
+ static int
+ useKeepalives(PGconn *conn)
+ {
++#if defined(__EMSCRIPTEN__)
++return 0;
++#else
+ 	char	   *ep;
+ 	int			val;
+ 
+@@ -2076,6 +2080,7 @@
+ 	if (*ep)
+ 		return -1;
+ 	return val != 0 ? 1 : 0;
++#endif
+ }
+ 
+ /*
+@@ -2348,13 +2353,14 @@
+ 	 * Nobody but developers should see this message, so we don't bother
+ 	 * translating it.
+ 	 */
++#if !defined(__EMSCRIPTEN__)
+ 	if (!pg_link_canary_is_frontend())
+ 	{
+ 		appendPQExpBufferStr(&conn->errorMessage,
+ 							 "libpq is incorrectly linked to backend functions\n");
+ 		goto connect_errReturn;
+ 	}
+-
++#endif
+ 	/* Ensure our buffers are empty */
+ 	conn->inStart = conn->inCursor = conn->inEnd = 0;
+ 	conn->outCount = 0;

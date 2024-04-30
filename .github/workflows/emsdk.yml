@@ -1,0 +1,60 @@
+name: WebAssembly build
+
+on:
+  workflow_dispatch:
+
+  release:
+    # this runs CI only when a release is created at first (and not when it is
+    # edited or published)
+    types: [created]
+
+  push:
+    branches: main
+
+  pull_request:
+    branches: main
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    env:
+        SDK_VERSION: 3.1.59.1bi
+        SDK_ARCHIVE: python3.12-wasm-sdk-Ubuntu-22.04.tar.lz4
+        SDKROOT: /opt/python-wasm-sdk
+        SYS_PYTHON: /usr/bin/python3
+
+    steps:
+    - uses: actions/checkout@v4.1.1
+      with:
+        fetch-depth: 1
+
+    - name: install python-wasm-sdk for wasi+prebuilts
+      run: |
+        sudo apt-get install -y lz4 wget pv bash
+        echo https://github.com/pygame-web/python-wasm-sdk/releases/download/$SDK_VERSION/$SDK_ARCHIVE
+        curl -sL --retry 5 https://github.com/pygame-web/python-wasm-sdk/releases/download/$SDK_VERSION/$SDK_ARCHIVE | tar xvP --use-compress-program=lz4 | pv -p -l -s 24400 >/dev/null
+        curl https://wasmtime.dev/install.sh -sSf | bash
+        mkdir -p /opt/python-wasm-sdk/wasisdk/bin
+        mv -vf $(find $HOME/|grep /wasmtime$) /opt/python-wasm-sdk/wasisdk/bin/
+
+      working-directory: /
+
+
+    - name: Build WASM with emsdk
+      run: |
+        bash ./node-build.sh
+
+    - name: Upload sdk to Github artifacts
+      uses: actions/upload-artifact@v4.3.1
+      with:
+        path: /tmp/sdk
+
+    - name: Upload sdk to Github Releases
+      if: github.event_name == 'release'
+      uses: svenstaro/upload-release-action@2.9.0
+      with:
+        repo_token: ${{ secrets.GITHUB_TOKEN }}
+        file: /tmp/sdk/*
+        file_glob: true
+        tag: ${{ github.ref }}
+

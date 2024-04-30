@@ -1,0 +1,11 @@
+--- postgresql-16.2/src/backend/tsearch/dict_simple.c	2024-02-05 22:41:37.000000000 +0100
++++ postgresql-16.2-wasm/src/backend/tsearch/dict_simple.c	2024-04-29 14:58:18.588399328 +0200
+@@ -47,7 +47,7 @@
+ 				ereport(ERROR,
+ 						(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+ 						 errmsg("multiple StopWords parameters")));
+-			readstoplist(defGetString(defel), &d->stoplist, lowerstr);
++			readstoplist(defGetString(defel), &d->stoplist, pg_lowerstr);
+ 			stoploaded = true;
+ 		}
+ 		else if (strcmp(defel->defname, "accept") == 0)

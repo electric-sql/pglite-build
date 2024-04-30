@@ -1,0 +1,12 @@
+--- postgresql-16.2/src/backend/access/heap/rewriteheap.c	2024-02-05 22:41:37.000000000 +0100
++++ postgresql-16.2-wasm/src/backend/access/heap/rewriteheap.c	2024-04-24 08:49:36.569534374 +0200
+@@ -1193,7 +1193,8 @@
+ 	DIR		   *mappings_dir;
+ 	struct dirent *mapping_de;
+ 	char		path[MAXPGPATH + 20];
+-
++puts("# why? 1199:" __FILE__) ;
++//return;
+ 	/*
+ 	 * We start of with a minimum of the last redo pointer. No new decoding
+ 	 * slot will start before that, so that's a safe upper bound for removal.

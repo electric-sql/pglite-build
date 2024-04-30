@@ -1,0 +1,57 @@
+--- postgresql-16.2/src/bin/initdb/initdb.c	2024-02-05 22:41:37.000000000 +0100
++++ postgresql-16.2-wasm/src/bin/initdb/initdb.c	2024-04-26 09:10:02.397228584 +0200
+@@ -45,7 +45,7 @@
+  *
+  *-------------------------------------------------------------------------
+  */
+-
++#define PG_INITDB
+ #include "postgres_fe.h"
+ 
+ #include <dirent.h>
+@@ -747,6 +747,7 @@
+ static char *
+ get_id(void)
+ {
++#if !defined(__EMSCRIPTEN__) && !defined(__wasi__)
+ 	const char *username;
+ 
+ #ifndef WIN32
+@@ -757,10 +758,12 @@
+ 		exit(1);
+ 	}
+ #endif
+-
+ 	username = get_user_name_or_exit(progname);
+ 
+ 	return pg_strdup(username);
++#else
++	return pg_strdup(WASM_USERNAME);
++#endif /* wasm */
+ }
+ 
+ static char *
+@@ -2557,8 +2560,13 @@
+ 			strlcpy(full_path, progname, sizeof(full_path));
+ 
+ 		if (ret == -1)
++#if defined(__EMSCRIPTEN__) || defined(__wasi__)
++			printf("# WARNING: program \"%s\" is needed by %s but was not found in the same directory as \"%s\"\n",
++					 "postgres", progname, full_path);
++#else
+ 			pg_fatal("program \"%s\" is needed by %s but was not found in the same directory as \"%s\"",
+ 					 "postgres", progname, full_path);
++#endif // wasm
+ 		else
+ 			pg_fatal("program \"%s\" was found by \"%s\" but was not the same version as %s",
+ 					 "postgres", full_path, progname);
+@@ -2986,7 +2994,9 @@
+ 
+ 	/* Select suitable configuration settings */
+ 	set_null_conf();
++#if !defined(__EMSCRIPTEN__) && !defined(__wasi__)
+ 	test_config_settings();
++#endif // wasm
+ 
+ 	/* Now create all the text config files */
+ 	setup_config();

@@ -1,0 +1,19 @@
+--- postgresql-16.2/src/backend/utils/init/postinit.c	2024-02-05 22:41:37.000000000 +0100
++++ postgresql-16.2-wasm/src/backend/utils/init/postinit.c	2024-04-26 08:53:13.981202629 +0200
+@@ -1345,14 +1345,15 @@
+ static void
+ ShutdownPostgres(int code, Datum arg)
+ {
++puts("# 1348: " __FILE__);
+ 	/* Make sure we've killed any active transaction */
+ 	AbortOutOfAnyTransaction();
+-
+ 	/*
+ 	 * User locks are not released by transaction end, so be sure to release
+ 	 * them explicitly.
+ 	 */
+ 	LockReleaseAll(USER_LOCKMETHOD, true);
++puts("# 1356: " __FILE__);
+ }
+ 
+ 

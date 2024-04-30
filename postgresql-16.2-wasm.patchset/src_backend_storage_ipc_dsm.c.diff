@@ -1,0 +1,22 @@
+--- postgresql-16.2/src/backend/storage/ipc/dsm.c	2024-02-05 22:41:37.000000000 +0100
++++ postgresql-16.2-wasm/src/backend/storage/ipc/dsm.c	2024-04-25 16:34:13.583340344 +0200
+@@ -154,7 +154,8 @@
+ 	Size		segsize;
+ 
+ 	Assert(!IsUnderPostmaster);
+-
++puts("# why ? 157: " __FILE__ );
++// return;
+ 	/*
+ 	 * If we're using the mmap implementations, clean up any leftovers.
+ 	 * Cleanup isn't needed on Windows, and happens earlier in startup for
+@@ -294,7 +295,8 @@
+ {
+ 	DIR		   *dir;
+ 	struct dirent *dent;
+-
++puts("# why ? 298: " __FILE__) ;
++// return;
+ 	/* Scan the directory for something with a name of the correct format. */
+ 	dir = AllocateDir(PG_DYNSHMEM_DIR);
+ 

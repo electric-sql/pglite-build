@@ -1,0 +1,10 @@
+--- postgresql-16.2/src/backend/access/transam/xact.c	2024-02-05 22:41:37.000000000 +0100
++++ postgresql-16.2-wasm/src/backend/access/transam/xact.c	2024-04-25 16:39:57.491916793 +0200
+@@ -1740,6 +1740,7 @@
+ 	if (TransactionIdDidCommit(xid))
+ 		elog(PANIC, "cannot abort transaction %u, it was already committed",
+ 			 xid);
++	else elog(WARNING, "# 1743: aborting transaction %u", xid);
+ 
+ 	/*
+ 	 * Are we using the replication origins feature?  Or, in other words, are
