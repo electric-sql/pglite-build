@@ -480,11 +480,11 @@ then
     mkdir -p ${PREFIX}/lib
     rm ${PREFIX}/lib/lib*.so.* ${PREFIX}/lib/libpq.so
 
-  	emcc -shared -o ${PREFIX}/lib/libpq.so \
-     ./src/interfaces/libpq/libpq.a \
-     ./src/port/libpgport.a \
-     ./src/common/libpgcommon.a
 
+    . /opt/python-wasm-sdk/wasm32-bi-emscripten-shell.sh
+
+
+    # build single lib static/shared 
     if [ -f /data/git/pg/local.sh ]
     then
         . /data/git/pg/local.sh
