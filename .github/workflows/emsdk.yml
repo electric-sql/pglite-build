@@ -44,6 +44,7 @@ jobs:
       run: |
         bash ./node-build.sh
 
+
     - name: Upload sdk to Github artifacts
       uses: actions/upload-artifact@v4.3.1
       with:

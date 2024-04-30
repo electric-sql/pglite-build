@@ -468,14 +468,12 @@ then
 
 	if [ -f ${PGDATA}/postmaster.pid ]
 	then
-#		cat > $PREFIX/initsql.sh <<END
-#cat $(realpath ../initdb.sql) | ${PREFIX}/postgres --single -F -O -j -c search_path=pg_catalog -c exit_on_error=true -c log_checkpoints=false template1
-#END
-
-    read
 		chmod +x $PREFIX/*.sh
 
-		$PREFIX/initsql.sh
+
+        # TODO run some sql tests
+		# $PREFIX/initsql.sh
+
 		rm $PGDATA/postmaster.pid
 	fi
 
