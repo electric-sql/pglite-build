@@ -1,4 +1,5 @@
 #if defined(PG_MAIN)
+/*
 bool
 get_check_function_bodies() {
     return check_function_bodies;
@@ -37,11 +38,12 @@ set_error_context_stack(ErrorContextCallback * errcs) {
     error_context_stack = errcs;
 }
 
+*/
 
 void
 PostgresMain(const char *dbname, const char *username)
 {
-    (void)CurrentMemoryContext;
+    //(void)CurrentMemoryContext;
     puts("ERROR: PostgresMain should not be called anymore" __FILE__ );
     abort();
 }

@@ -411,7 +411,7 @@ fi
 CMD="${PREFIX}/postgres --boot $CKSUM_B -d 3 $PGOPTS -X 1048576"
 echo "\$CMD < \$SQL.boot.sql"
 \$CMD < \$SQL.boot.sql 2>&1 \\
- | grep -v --line-buffered 'pg>' \\
+ | grep -v --line-buffered 'backend> \$' \\
  | grep -v --line-buffered 'index'
 
 echo "
@@ -431,7 +431,7 @@ fi
 CMD="${PREFIX}/postgres --single $PGFIXES $CKSUM_S -F -O -j $PGOPTS template1"
 echo "\$CMD < \$SQL.single.sql"
 \$CMD < \$SQL.single.sql \\
- | grep -v --line-buffered '^backend> \$' \\
+ | grep -v --line-buffered '^pg> \$' \\
  | grep -v --line-buffered ^\$
 
 rm $PGDATA/postmaster.pid

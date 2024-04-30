@@ -1,6 +1,6 @@
 --- postgresql-16.2/src/include/port/emscripten.h	2024-04-30 08:02:57.615354846 +0200
-+++ postgresql-16.2-wasm/src/include/port/emscripten.h	2024-04-30 09:25:39.212661194 +0200
-@@ -0,0 +1,178 @@
++++ postgresql-16.2-wasm/src/include/port/emscripten.h	2024-04-30 11:02:24.342182939 +0200
+@@ -0,0 +1,179 @@
 +/* src/include/port/emscripten.h */
 +
 +#ifndef I_EMSCRIPTEN
@@ -73,7 +73,8 @@
 +
 +#define proc_exit(arg) pg_proc_exit(arg)
 +
-+#define lowerstr(str) pg_lowerstr(str)
++// only needed for preloading of plugins.
++// #define lowerstr(str) pg_lowerstr(str)
 +
 +
 +/*
