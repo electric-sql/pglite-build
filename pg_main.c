@@ -1,51 +1,15 @@
 #if defined(PG_MAIN)
-/*
-bool
-get_check_function_bodies() {
-    return check_function_bodies;
-}
 
-MemoryContext
-getCurrentMemoryContext(){
-    return CurrentMemoryContext;
-}
-MemoryContext
-getTopMemoryContext() {
-    return TopMemoryContext;
-}
-
-void
-setCurrentMemoryContext(MemoryContext ctx) {
-    CurrentMemoryContext = ctx;
-}
-
-MemoryContext
-setMemoryContextSwitch(MemoryContext context)
-{
-	MemoryContext old = getCurrentMemoryContext();
-	setCurrentMemoryContext(context);
-	return old;
-}
-
-
-ErrorContextCallback *
-get_error_context_stack() {
-    return error_context_stack;
-}
-
-void
-set_error_context_stack(ErrorContextCallback * errcs) {
-    error_context_stack = errcs;
-}
-
-*/
+EMSCRIPTEN_KEEPALIVE void interactive_one();
+/* exported from postmaster.h */
+EMSCRIPTEN_KEEPALIVE const char * progname;
 
 void
 PostgresMain(const char *dbname, const char *username)
 {
     //(void)CurrentMemoryContext;
     puts("ERROR: PostgresMain should not be called anymore" __FILE__ );
-    abort();
+    //abort();
 }
 
 
@@ -53,11 +17,33 @@ volatile bool send_ready_for_query = true;
 volatile bool idle_in_transaction_timeout_enabled = false;
 volatile bool idle_session_timeout_enabled = false;
 volatile sigjmp_buf local_sigjmp_buf;
-static volatile bool repl = true ;
 
-#define EXTRA 0
+volatile bool repl = true ;
+volatile int pg_idb_status = 0;
 
-static void
+EMSCRIPTEN_KEEPALIVE void
+pg_initdb() {
+    puts("pg_initdb called");
+}
+
+EMSCRIPTEN_KEEPALIVE void
+pg_initdb_repl(const char* std_in, const char* std_out, const char* std_err, const char* js_handler) {
+    printf("in=%s out=%s err=%s js=%s\n", std_in, std_out, std_err, js_handler);
+}
+
+EMSCRIPTEN_KEEPALIVE void
+pg_initdb_start() {
+    pg_idb_status++;
+}
+
+EMSCRIPTEN_KEEPALIVE int
+pg_isready() {
+    return pg_idb_status;
+
+}
+
+
+EMSCRIPTEN_KEEPALIVE void
 interactive_one() {
 	int			firstchar;
 	int			c;				/* character read from getc() */
@@ -444,6 +430,8 @@ PostgresSingleUserMain(int argc, char *argv[],
 */
 
 	Assert(!IsUnderPostmaster);
+
+	progname = get_progname(argv[0]);
 
 	/* Initialize startup process environment. */
 	InitStandaloneProcess(argv[0]);

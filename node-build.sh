@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# TODO: add wasm sdk download
+# TODO: add wasm sdk download when not in git CI
 
 ARCHIVE=postgresql-16.2.tar.bz2
 
@@ -16,7 +16,6 @@ cd postgresql-16.2
 
 cat ../postgresql-16.2-wasm.patchset/*diff | patch -p1
 
-PREFIX=/tmp/pglite ../wasm-build.sh emsdk
+DEBUG=true PREFIX=/tmp/pglite ../wasm-build.sh emsdk test
 
-PREFIX=/tmp/pglite ../wasm-build.sh test
 

@@ -1,11 +1,11 @@
 #!/bin/bash
 reset
+export PREFIX=${PREFIX:-/pgdata}
 
 # save prefix because wasm sdk may change it to sdk install prefix
-PGROOT=${PREFIX:-/pgdata}
+PGROOT=${PREFIX}
+PGDATA=${PGROOT}/base
 
-
-PGDATA=${PREFIX}/base
 PGUSER=postgres
 
 # warnings for indexes
@@ -61,12 +61,11 @@ LANG="-E UTF8 --locale=C.UTF-8 --locale-provider=libc"
 
 echo "
 
-		PREFIX=$PREFIX
+        PREFIX=$PREFIX
         PGDATA=$PGDATA
 
 TODO:
     handle symlinks for initdb --waldir=${PREFIX}/wal to $PGDATA/pg_wal
-
 
 
 "
@@ -120,15 +119,23 @@ END
 
 #  --with-wal-blocksize=1 --with-segsize=1 --with-segsize-blocks=0 --with-blocksize=4 \
 
+if ${DEBUG:-true}
+then
+    DEBUG="--enable-debug"
+    CDEBUG="-g3 -O0"
+else
+    DEBUG=""
+    CDEBUG="-g0 -Os"
+fi
 
-
+export CDEBUG
 
 CNF="./configure --prefix=${PREFIX} \
  --disable-spinlocks --disable-atomics \
  --without-zlib --disable-largefile --without-llvm \
  --without-pam --disable-largefile --without-zlib --with-openssl=no \
  --without-readline --without-icu \
- --enable-debug"
+ ${DEBUG}"
 
 
 
@@ -136,7 +143,7 @@ if echo "$@" |grep native
 then
 
 	make distclean
-	echo "         =============== building host native ===================   "
+	echo "    ======== building host native , Debug = ${DEBUG} ===========   "
 	if CONFIG_SITE=${PREFIX}/config.site CC="clang" CXX="clang++" CFLAGS="-m32" $CNF --with-template=linux
     then
         sed -i 's|-sMAIN_MODULE=1||g' src/backend/Makefile
@@ -182,7 +189,7 @@ then
 	. /opt/python-wasm-sdk/wasisdk/wasisdk_env.sh
     export PREFIX=$PGROOT
 
-	echo "      =============== building wasi  ===================   "
+	echo "      ========== building wasi Debug=${DEBUG} ===========   "
 	#make distclean
 
 	CONFIG_SITE=${PREFIX}/config.site CC="wasi-c" CXX="wasi-c++" $CNF --cache-file=${PREFIX}/config.cache.emsdk && make
@@ -206,7 +213,7 @@ then
     # was erased, default pfx is sdk dir
     export PREFIX=$PGROOT
 
-    echo "      ======== building wasm MVP:$MVP with opts : $@  ========= "
+    echo "  ==== building wasm MVP:$MVP Debug=${DEBUG} with opts : $@  == "
 
 
     if [ -f ${PREFIX}/password ]
@@ -233,7 +240,7 @@ then
 
     # crash clang CFLAGS=-Wno-error=implicit-function-declaration
 
-    if CONFIG_SITE==${PGDATA}/config.site emconfigure $CNF --with-template=emscripten --cache-file=${PREFIX}/config.cache.emsdk $@
+    if CONFIG_SITE==${PGDATA}/config.site emconfigure $CNF --with-template=emscripten --cache-file=${PREFIX}/config.cache.emsdk
     then
         echo configure ok
     else
@@ -290,22 +297,24 @@ touch \$@
 END
 
     # FIXME: workaround for /conversion_procs/ make
-    # cp bin/disable-shared bin/o
-    cp -vf zic.native bin/zic
+    # cp bin/wasm-shared bin/o
+    if which zic
+    then
+        cp $(which zic) zic.native bin/zic
+    fi
     chmod +x bin/zic bin/wasm-shared
-    # bin/o
 
-    # for zic and disable-shared
+    # for zic and wasm-shared
     export PATH=$(pwd)/bin:$PATH
 
 
-    EMCC_CFLAGS="-sNO_EXIT_RUNTIME=1"
-    EMCC_CFLAGS="-sEXIT_RUNTIME=1 -DEXIT_RUNTIME"
+    EMCC_NODE="-sNO_EXIT_RUNTIME=1"
+    EMCC_NODE="-sEXIT_RUNTIME=1 -DEXIT_RUNTIME -sNODERAWFS -sENVIRONMENT=node"
 
-# export EMCC_CFLAGS="-lwebsocket.js -sPROXY_POSIX_SOCKETS -pthread -sPROXY_TO_PTHREAD $EMCC_CFLAGS"
-
+    # export EMCC_CFLAGS="-lwebsocket.js -sPROXY_POSIX_SOCKETS -pthread -sPROXY_TO_PTHREAD $EMCC_CFLAGS"
     #  -sWASMFS
-    EMCC_CFLAGS="-sNODERAWFS -sENVIRONMENT=node -sTOTAL_MEMORY=1GB -sSTACK_SIZE=5MB -sALLOW_TABLE_GROWTH -sALLOW_MEMORY_GROWTH -sGLOBAL_BASE=4MB $EMCC_CFLAGS"
+
+    EMCC_CFLAGS="-sTOTAL_MEMORY=1GB -sSTACK_SIZE=5MB -sALLOW_TABLE_GROWTH -sALLOW_MEMORY_GROWTH -sGLOBAL_BASE=4MB $EMCC_CFLAGS"
     EMCC_CFLAGS="-DPREFIX=$PREFIX $EMCC_CFLAGS"
 
     if $CI
@@ -320,12 +329,12 @@ END
     export EMCC_CFLAGS="-Wno-macro-redefined -Wno-unused-function $EMCC_CFLAGS"
 
 
-	if emmake make -j $(nproc) 2>&1 > /tmp/build.log
+	if EMCC_CFLAGS="$EMCC_NODE $EMCC_CFLAGS" emmake make -j $(nproc) 2>&1 > /tmp/build.log
 	then
         echo build ok
         # for 32bits zic
         unset LD_PRELOAD
-        if emmake make install 2>&1 > /tmp/install.log
+        if EMCC_CFLAGS="$EMCC_NODE $EMCC_CFLAGS" emmake make install 2>&1 > /tmp/install.log
         then
             echo install ok
         else
@@ -352,6 +361,7 @@ END
 TZ=UTC PGTZ=UTC PGDATA=${PGDATA} node ${PREFIX}/bin/postgres.js \$@
 END
 
+# remove the abort but stall prompt
 #  2>&1 | grep --line-buffered -v ^var\\ Module
 
     # force node wasm version
@@ -408,10 +418,10 @@ fi
 # 2024-04-24 05:53:28.121 GMT [42] WARNING:  page verification failed, calculated checksum 5487 but expected 0
 # 2024-04-24 05:53:28.121 GMT [42] FATAL:  invalid page in block 0 of relation base/1/1259
 
-CMD="${PREFIX}/postgres --boot $CKSUM_B -d 3 $PGOPTS -X 1048576"
+CMD="${PREFIX}/postgres --boot $CKSUM_B -D ${PGDATA} -d 3 $PGOPTS -X 1048576"
 echo "\$CMD < \$SQL.boot.sql"
 \$CMD < \$SQL.boot.sql 2>&1 \\
- | grep -v --line-buffered 'backend> \$' \\
+ | grep -v --line-buffered 'bootstrap> boot' \\
  | grep -v --line-buffered 'index'
 
 echo "
@@ -428,7 +438,7 @@ else
 fi
 
 
-CMD="${PREFIX}/postgres --single $PGFIXES $CKSUM_S -F -O -j $PGOPTS template1"
+CMD="${PREFIX}/postgres --single $PGFIXES $CKSUM_S -D ${PGDATA} -F -O -j $PGOPTS template1"
 echo "\$CMD < \$SQL.single.sql"
 \$CMD < \$SQL.single.sql \\
  | grep -v --line-buffered '^pg> \$' \\
@@ -463,7 +473,7 @@ then
     echo "      ======= testing with opts: $@ =========   "
 
 
-	$PREFIX/initdb.sh
+	$PREFIX/initdb.sh   2>&1 | grep --line-buffered -v ^var\ Module
 	echo "initdb.sh done, now init sql default database"
 
 	if [ -f ${PGDATA}/postmaster.pid ]
@@ -480,11 +490,10 @@ then
     mkdir -p ${PREFIX}/lib
     rm ${PREFIX}/lib/lib*.so.* ${PREFIX}/lib/libpq.so
 
-
     . /opt/python-wasm-sdk/wasm32-bi-emscripten-shell.sh
 
 
-    # build single lib static/shared 
+    # build single lib static/shared
     if [ -f /data/git/pg/local.sh ]
     then
         . /data/git/pg/local.sh
