@@ -110,7 +110,7 @@ ac_cv_search_sem_open=no
 ac_cv_file__dev_urandom=no
 END
 
-cat > /pgdata/locale <<END
+cat > ${PREFIX}/locale <<END
 C
 C.UTF-8
 POSIX
@@ -308,11 +308,14 @@ END
     export PATH=$(pwd)/bin:$PATH
 
 
-    EMCC_NODE="-sNO_EXIT_RUNTIME=1"
+    EMCC_NODE="-sNO_EXIT_RUNTIME=1 -sENVIRONMENT=web"
     EMCC_NODE="-sEXIT_RUNTIME=1 -DEXIT_RUNTIME -sNODERAWFS -sENVIRONMENT=node"
 
     # export EMCC_CFLAGS="-lwebsocket.js -sPROXY_POSIX_SOCKETS -pthread -sPROXY_TO_PTHREAD $EMCC_CFLAGS"
     #  -sWASMFS
+
+    # only required for static initdb
+    EMCC_CFLAFS="-sERROR_ON_UNDEFINED_SYMBOLS=0"
 
     EMCC_CFLAGS="-sTOTAL_MEMORY=1GB -sSTACK_SIZE=5MB -sALLOW_TABLE_GROWTH -sALLOW_MEMORY_GROWTH -sGLOBAL_BASE=4MB $EMCC_CFLAGS"
     EMCC_CFLAGS="-DPREFIX=$PREFIX $EMCC_CFLAGS"

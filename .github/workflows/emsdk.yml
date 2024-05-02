@@ -18,7 +18,7 @@ jobs:
   build:
     runs-on: ubuntu-22.04
     env:
-        SDK_VERSION: 3.1.59.1bi
+        SDK_VERSION: 3.1.60.0bi
         SDK_ARCHIVE: python3.12-wasm-sdk-Ubuntu-22.04.tar.lz4
         SDKROOT: /opt/python-wasm-sdk
         SYS_PYTHON: /usr/bin/python3
@@ -28,7 +28,7 @@ jobs:
       with:
         fetch-depth: 1
 
-    - name: install python-wasm-sdk for wasi+prebuilts
+    - name: install python-wasm-sdk for emsdk/wasi+prebuilts
       run: |
         sudo apt-get install -y lz4 wget pv bash
         echo https://github.com/pygame-web/python-wasm-sdk/releases/download/$SDK_VERSION/$SDK_ARCHIVE
@@ -40,7 +40,7 @@ jobs:
       working-directory: /
 
 
-    - name: Build WASM with emsdk
+    - name: Build PGLite WASM with emsdk
       run: |
         bash ./node-build.sh
 

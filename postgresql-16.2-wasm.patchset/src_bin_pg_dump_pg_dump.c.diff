@@ -1,0 +1,11 @@
+--- postgresql-16.2/src/bin/pg_dump/pg_dump.c	2024-02-05 22:41:37.000000000 +0100
++++ postgresql-16.2-wasm/src/bin/pg_dump/pg_dump.c	2024-05-02 17:57:13.876075456 +0200
+@@ -410,7 +410,7 @@
+ 		{"lock-wait-timeout", required_argument, NULL, 2},
+ 		{"no-table-access-method", no_argument, &dopt.outputNoTableAm, 1},
+ 		{"no-tablespaces", no_argument, &dopt.outputNoTablespaces, 1},
+-		{"quote-all-identifiers", no_argument, &quote_all_identifiers, 1},
++		{"quote-all-identifiers", no_argument, &quote_all_identifiers, true},
+ 		{"load-via-partition-root", no_argument, &dopt.load_via_partition_root, 1},
+ 		{"role", required_argument, NULL, 3},
+ 		{"section", required_argument, NULL, 5},

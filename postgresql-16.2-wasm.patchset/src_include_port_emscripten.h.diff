@@ -1,6 +1,6 @@
 --- postgresql-16.2/src/include/port/emscripten.h	2024-04-30 08:02:57.615354846 +0200
-+++ postgresql-16.2-wasm/src/include/port/emscripten.h	2024-04-30 11:02:24.342182939 +0200
-@@ -0,0 +1,179 @@
++++ postgresql-16.2-wasm/src/include/port/emscripten.h	2024-05-02 18:30:20.683162125 +0200
+@@ -0,0 +1,184 @@
 +/* src/include/port/emscripten.h */
 +
 +#ifndef I_EMSCRIPTEN
@@ -46,7 +46,12 @@
 +#define PG_FORCE_DISABLE_INLINE
 +
 +// we want client and server in the same lib for now.
++#if defined(PG_INITDB) && defined(PG_MAIN)
++extern const char *progname;
++#endif
 +
++/*#include <stdbool.h> // bool*/
++/*extern bool quote_all_identifiers;*/
 +extern int	pg_char_to_encoding_private(const char *name);
 +extern const char *pg_encoding_to_char_private(int encoding);
 +extern int	pg_valid_server_encoding_id_private(int encoding);

@@ -1,0 +1,12 @@
+--- postgresql-16.2/src/fe_utils/string_utils.c	2024-02-05 22:41:37.000000000 +0100
++++ postgresql-16.2-wasm/src/fe_utils/string_utils.c	2024-05-02 21:55:32.477368347 +0200
+@@ -23,7 +23,8 @@
+ static PQExpBuffer defaultGetLocalPQExpBuffer(void);
+ 
+ /* Globals exported by this file */
+-int			quote_all_identifiers = 0;
++bool			quote_all_identifiers = false;
++
+ PQExpBuffer (*getLocalPQExpBuffer) (void) = defaultGetLocalPQExpBuffer;
+ 
+ 

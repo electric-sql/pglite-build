@@ -1,5 +1,5 @@
 --- postgresql-16.2/src/backend/storage/ipc/dsm.c	2024-02-05 22:41:37.000000000 +0100
-+++ postgresql-16.2-wasm/src/backend/storage/ipc/dsm.c	2024-04-25 16:34:13.583340344 +0200
++++ postgresql-16.2-wasm/src/backend/storage/ipc/dsm.c	2024-05-02 15:05:35.372642334 +0200
 @@ -154,7 +154,8 @@
  	Size		segsize;
  

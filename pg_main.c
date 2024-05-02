@@ -1,14 +1,21 @@
+
 #if defined(PG_MAIN)
 
+EMSCRIPTEN_KEEPALIVE bool
+quote_all_identifiers = false;
+
+
 EMSCRIPTEN_KEEPALIVE void interactive_one();
+
 /* exported from postmaster.h */
-EMSCRIPTEN_KEEPALIVE const char * progname;
+EMSCRIPTEN_KEEPALIVE const char*
+progname;
 
 void
 PostgresMain(const char *dbname, const char *username)
 {
     //(void)CurrentMemoryContext;
-    puts("ERROR: PostgresMain should not be called anymore" __FILE__ );
+    puts("# 18: ERROR: PostgresMain should not be called anymore" __FILE__ );
     //abort();
 }
 
@@ -41,6 +48,33 @@ pg_isready() {
     return pg_idb_status;
 
 }
+
+#if 0
+
+#include "../bin/initdb/initdb.c"
+void fsync_pgdata(const char *pg_data, int serverVersion) {}
+void fsync_dir_recurse(const char *dir) {}
+
+
+int
+PQclientEncoding(const PGconn *conn) {
+    return -1;
+};
+
+size_t
+PQescapeStringConn(PGconn *conn,
+				   char *to, const char *from, size_t length,
+				   int *error) {
+	*to = '\0';
+	if (error)
+		*error = 1;
+	return 0;
+}
+
+#include "../interfaces/libpq/pqexpbuffer.c"
+#include "../fe_utils/string_utils.c"
+
+#endif
 
 
 EMSCRIPTEN_KEEPALIVE void
@@ -391,7 +425,7 @@ interactive_one() {
 			 * it will fail to be called during other backend-shutdown
 			 * scenarios.
 			 */
-puts("# 849 proc_exit"); //proc_exit(0);
+puts("# 428 proc_exit"); //proc_exit(0);
             repl = false;
             return;
 
@@ -810,7 +844,7 @@ PostgresSingleUserMain(int argc, char *argv[],
 	/*
 	 * Non-error queries loop here.
 	 */
-puts("# 405: REPL:Begin" __FILE__ );
+puts("# 847: REPL:Begin" __FILE__ );
 //    emscripten_set_main_loop( (em_callback_func)interactive_one, 0, 1);
 
 	while (repl)
@@ -827,6 +861,7 @@ abort();
 
 #else
 
+extern bool quote_all_identifiers;
 
 #if defined(__EMSCRIPTEN__) || defined(__wasi__)
 #include <unistd.h>        /* chdir */
@@ -838,7 +873,6 @@ void mkdirp(const char *p) {
 	}
 }
 #endif /* wasm */
-
 
 int
 main(int argc, char *argv[])
@@ -1012,14 +1046,14 @@ puts("# =========================================");
 
 
     if (argc > 1 && strcmp(argv[1], "--boot") == 0) {
-        puts("235: boot: " __FILE__ );
+        puts("1049: boot: " __FILE__ );
         return BootstrapModeMain(argc, argv, false);
     }
 
-    puts("# 170: single: " __FILE__ );
+    puts("# 1053: single: " __FILE__ );
     PostgresSingleUserMain(argc, argv, strdup( getenv("PGUSER")));
 
-    puts("# 173: " __FILE__);
+    puts("# 1056: " __FILE__);
     emscripten_force_exit(ret);
 	return ret;
 }

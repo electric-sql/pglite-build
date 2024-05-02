@@ -1,5 +1,5 @@
 --- postgresql-16.2/src/port/path.c	2024-02-05 22:41:37.000000000 +0100
-+++ postgresql-16.2-wasm/src/port/path.c	2024-04-24 08:49:36.573534270 +0200
++++ postgresql-16.2-wasm/src/port/path.c	2024-05-02 15:05:35.380642218 +0200
 @@ -598,6 +598,15 @@
  	if (strlen(progname) > sizeof(EXE) - 1 &&
  		pg_strcasecmp(progname + strlen(progname) - (sizeof(EXE) - 1), EXE) == 0)

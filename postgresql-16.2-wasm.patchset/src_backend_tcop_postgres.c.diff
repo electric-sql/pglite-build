@@ -1,5 +1,5 @@
 --- postgresql-16.2/src/backend/tcop/postgres.c	2024-02-05 22:41:37.000000000 +0100
-+++ postgresql-16.2-wasm/src/backend/tcop/postgres.c	2024-04-28 09:12:57.059226914 +0200
++++ postgresql-16.2-wasm/src/backend/tcop/postgres.c	2024-05-02 15:05:35.373642320 +0200
 @@ -3988,7 +3988,11 @@
  #endif
  }

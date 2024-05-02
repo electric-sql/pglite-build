@@ -1,5 +1,5 @@
 --- postgresql-16.2/src/bin/initdb/initdb.c	2024-02-05 22:41:37.000000000 +0100
-+++ postgresql-16.2-wasm/src/bin/initdb/initdb.c	2024-04-26 09:10:02.397228584 +0200
++++ postgresql-16.2-wasm/src/bin/initdb/initdb.c	2024-05-02 23:45:54.701349352 +0200
 @@ -45,7 +45,7 @@
   *
   *-------------------------------------------------------------------------
@@ -9,7 +9,19 @@
  #include "postgres_fe.h"
  
  #include <dirent.h>
-@@ -747,6 +747,7 @@
+@@ -168,7 +168,11 @@
+ 
+ 
+ /* internal vars */
++#if !defined(PG_MAIN)
+ static const char *progname;
++#else
++#   define dynamic_shared_memory_type idb_dynamic_shared_memory_type
++#endif
+ static int	encodingid;
+ static char *bki_file;
+ static char *hba_file;
+@@ -747,6 +751,7 @@
  static char *
  get_id(void)
  {
@@ -17,7 +29,7 @@
  	const char *username;
  
  #ifndef WIN32
-@@ -757,10 +758,12 @@
+@@ -757,10 +762,12 @@
  		exit(1);
  	}
  #endif
@@ -31,7 +43,7 @@
  }
  
  static char *
-@@ -2557,8 +2560,13 @@
+@@ -2557,8 +2564,13 @@
  			strlcpy(full_path, progname, sizeof(full_path));
  
  		if (ret == -1)
@@ -45,7 +57,7 @@
  		else
  			pg_fatal("program \"%s\" was found by \"%s\" but was not the same version as %s",
  					 "postgres", full_path, progname);
-@@ -2986,7 +2994,9 @@
+@@ -2986,7 +2998,9 @@
  
  	/* Select suitable configuration settings */
  	set_null_conf();
@@ -55,3 +67,51 @@
  
  	/* Now create all the text config files */
  	setup_config();
+@@ -3051,9 +3065,29 @@
+ 	check_ok();
+ }
+ 
++#if defined(PG_MAIN)
++
++// FIXME: get PGDATA from env.
+ 
++char *argv[] = {
++    WASM_PREFIX "/bin/initdb",
++    "--no-clean",
++    "--wal-segsize=1",
++    "-g",
++    "-E", "UTF8", "--locale=C.UTF-8", "--locale-provider=libc",
++    "-U", WASM_USERNAME, "--pwfile=" WASM_PREFIX "/password",
++    "--pgdata=" WASM_PREFIX "/base",
++    NULL
++};
++
++int argc = sizeof(argv) / sizeof(char*) - 1;
++
++EMSCRIPTEN_KEEPALIVE int
++pg_initdb_main()
++#else
+ int
+ main(int argc, char *argv[])
++#endif
+ {
+ 	static struct option long_options[] = {
+ 		{"pgdata", required_argument, NULL, 'D'},
+@@ -3113,10 +3147,16 @@
+ 	 */
+ 	setvbuf(stdout, NULL, PG_IOLBF, 0);
+ 
++#if defined(PG_MAIN)
++	progname = strdup("initdb");
++    printf("calling pg_initdb_main for %s\n", progname);
++	//pg_logging_init(progname);
++	//set_pglocale_pgservice(progname, PG_TEXTDOMAIN("initdb"));
++#else
+ 	pg_logging_init(argv[0]);
+ 	progname = get_progname(argv[0]);
+ 	set_pglocale_pgservice(argv[0], PG_TEXTDOMAIN("initdb"));
+-
++#endif
+ 	if (argc > 1)
+ 	{
+ 		if (strcmp(argv[1], "--help") == 0 || strcmp(argv[1], "-?") == 0)

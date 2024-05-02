@@ -1,5 +1,5 @@
 --- postgresql-16.2/src/backend/commands/collationcmds.c	2024-02-05 22:41:37.000000000 +0100
-+++ postgresql-16.2-wasm/src/backend/commands/collationcmds.c	2024-04-24 09:12:16.035273102 +0200
++++ postgresql-16.2-wasm/src/backend/commands/collationcmds.c	2024-05-02 15:05:35.369642378 +0200
 @@ -828,8 +828,11 @@
  		maxaliases = 100;
  		aliases = (CollAliasData *) palloc(maxaliases * sizeof(CollAliasData));
