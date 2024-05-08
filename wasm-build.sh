@@ -33,6 +33,7 @@ mkdir -p ${PREFIX}
 cat > ${PREFIX}/pgopts.sh <<END
 export PGOPTS="\\
  -c log_checkpoints=false \\
+ -c dynamic_shared_memory_type=posix \\
  -c search_path=pg_catalog \\
  -c exit_on_error=$EOE \\
  -c ignore_invalid_pages=on \\
@@ -274,7 +275,7 @@ END
 #!/bin/bash
 echo "[\$(pwd)] $0 \$@" >> /tmp/disable-shared.log
 # shared build
-emcc -shared -sSIDE_MODULE=1 \$@ -Wno-unused-function
+emcc -DPREFIX=${PREFIX} -shared -sSIDE_MODULE=1 \$@ -Wno-unused-function
 exit 0
 # fake linker
 for arg do
@@ -308,36 +309,37 @@ END
     export PATH=$(pwd)/bin:$PATH
 
 
-    EMCC_NODE="-sNO_EXIT_RUNTIME=1 -sENVIRONMENT=web"
+    EMCC_WEB="-sNO_EXIT_RUNTIME=1 -sENVIRONMENT=web"
     EMCC_NODE="-sEXIT_RUNTIME=1 -DEXIT_RUNTIME -sNODERAWFS -sENVIRONMENT=node"
+    EMCC_ENV=${EMCC_NODE}
 
     # export EMCC_CFLAGS="-lwebsocket.js -sPROXY_POSIX_SOCKETS -pthread -sPROXY_TO_PTHREAD $EMCC_CFLAGS"
     #  -sWASMFS
 
     # only required for static initdb
-    EMCC_CFLAFS="-sERROR_ON_UNDEFINED_SYMBOLS=0"
+    EMCC_CFLAGS="-sERROR_ON_UNDEFINED_SYMBOLS=0"
 
-    EMCC_CFLAGS="-sTOTAL_MEMORY=1GB -sSTACK_SIZE=5MB -sALLOW_TABLE_GROWTH -sALLOW_MEMORY_GROWTH -sGLOBAL_BASE=4MB $EMCC_CFLAGS"
-    EMCC_CFLAGS="-DPREFIX=$PREFIX $EMCC_CFLAGS"
+    EMCC_CFLAGS="-sTOTAL_MEMORY=1GB -sSTACK_SIZE=5MB -sALLOW_TABLE_GROWTH -sALLOW_MEMORY_GROWTH -sGLOBAL_BASE=4MB ${EMCC_CFLAGS}"
+    EMCC_CFLAGS="-DPREFIX=${PREFIX} ${EMCC_CFLAGS}"
 
     if $CI
     then
-        EMCC_CFLAGS="-DPATCH_MAIN=/home/runner/work/pglite-build/pglite-build/pg_main.c $EMCC_CFLAGS"
-        EMCC_CFLAGS="-DPATCH_PLUGIN=/home/runner/work/pglite-build/pglite-build/pg_plugin.h  $EMCC_CFLAGS"
+        EMCC_CFLAGS="-DPATCH_MAIN=/home/runner/work/pglite-build/pglite-build/pg_main.c ${EMCC_CFLAGS}"
+        EMCC_CFLAGS="-DPATCH_PLUGIN=/home/runner/work/pglite-build/pglite-build/pg_plugin.h ${EMCC_CFLAGS}"
     else
-        EMCC_CFLAGS="-DPATCH_MAIN=/data/git/pg/pg_main.c $EMCC_CFLAGS"
-        EMCC_CFLAGS="-DPATCH_PLUGIN=/data/git/pg/pg_plugin.h  $EMCC_CFLAGS"
+        EMCC_CFLAGS="-DPATCH_MAIN=/data/git/pg/pg_main.c ${EMCC_CFLAGS}"
+        EMCC_CFLAGS="-DPATCH_PLUGIN=/data/git/pg/pg_plugin.h ${EMCC_CFLAGS}"
     fi
 
-    export EMCC_CFLAGS="-Wno-macro-redefined -Wno-unused-function $EMCC_CFLAGS"
+    export EMCC_CFLAGS="-Wno-macro-redefined -Wno-unused-function ${EMCC_CFLAGS}"
 
 
-	if EMCC_CFLAGS="$EMCC_NODE $EMCC_CFLAGS" emmake make -j $(nproc) 2>&1 > /tmp/build.log
+	if EMCC_CFLAGS="${EMCC_ENV} ${EMCC_CFLAGS}" emmake make -j $(nproc) 2>&1 > /tmp/build.log
 	then
         echo build ok
         # for 32bits zic
         unset LD_PRELOAD
-        if EMCC_CFLAGS="$EMCC_NODE $EMCC_CFLAGS" emmake make install 2>&1 > /tmp/install.log
+        if EMCC_CFLAGS="${EMCC_ENV} ${EMCC_CFLAGS}" emmake make install 2>&1 > /tmp/install.log
         then
             echo install ok
         else
@@ -391,6 +393,7 @@ export TZ=UTC
 export PGTZ=UTC
 SQL=/tmp/initdb-\$\$
 # TODO: --waldir=${PREFIX}/wal
+> /tmp/initdb.txt
 ${PREFIX}/initdb --no-clean --wal-segsize=1 -g $LANG $CRED --pgdata=${PGDATA} 2> /tmp/initdb-\$\$.log
 
 grep -v dynamic_shared_memory_type ${PGDATA}/postgresql.conf > /tmp/pg-\$\$.conf
@@ -400,15 +403,22 @@ mv /tmp/pg-\$\$.conf ${PGDATA}/postgresql.conf
 # cat /data/git/pg/postgresql.conf > ${PGDATA}/postgresql.conf
 # ====================================================================
 
-grep -v ^invalid\\ binary /tmp/initdb-\$\$.log \\
- | csplit - -s -n 1 -f \${SQL}-split /^build\\ indices\$/1
+#grep -v ^invalid\\ binary /tmp/initdb-\$\$.log \\
+# | csplit - -s -n 1 -f \${SQL}-split /^build\\ indices\$/1
+#
 
-grep -v ^# \${SQL}-split0 > \${SQL}.boot.sql
-rm \${SQL}-split0
+#grep -v ^invalid\\ binary /tmp/initdb.txt \\
+# | csplit - -s -n 1 -f \${SQL}-split /^build\\ indices\$/1
+#
 
-grep -v ^# \${SQL}-split1 | grep -v ^warning \\
-  | grep -v '^/\\*'  | grep -v '^ \\*' | grep -v '^ \\*/'  > \${SQL}.single.sql
+#grep -v ^# \${SQL}-split0 > \${SQL}.boot.sql
+#rm \${SQL}-split0
 
+#grep -v ^# \${SQL}-split1 | grep -v ^warning \\
+#  | grep -v '^/\\*'  | grep -v '^ \\*' | grep -v '^ \\*/'  >> \${SQL}.single.sql
+
+mv /tmp/initdb.boot.txt \${SQL}.boot.sql
+mv /tmp/initdb.single.txt \${SQL}.single.sql
 
 if \${CI:-false}
 then
@@ -457,7 +467,9 @@ then
     read
 fi
 
-rm /tmp/initdb-\$\$.log \${SQL}-split1 /tmp/initdb-\$\$.*.sql
+# rm  /tmp/initdb-\$\$.log \${SQL}-split1
+
+rm /tmp/initdb-\$\$.*.sql
 END
 
     # force node wasm version

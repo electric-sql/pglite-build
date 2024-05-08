@@ -1,0 +1,11 @@
+--- postgresql-16.2/src/backend/utils/mmgr/mcxt.c	2024-02-05 22:41:37.000000000 +0100
++++ postgresql-16.2-wasm/src/backend/utils/mmgr/mcxt.c	2024-05-06 13:37:16.860546156 +0200
+@@ -282,7 +282,7 @@
+  *
+  * In a standalone backend this must be called during backend startup.
+  */
+-void
++EMSCRIPTEN_KEEPALIVE void
+ MemoryContextInit(void)
+ {
+ 	Assert(TopMemoryContext == NULL);

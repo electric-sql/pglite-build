@@ -1,0 +1,31 @@
+--- postgresql-16.2/src/bin/pg_dump/pg_dumpall.c	2024-02-05 22:41:37.000000000 +0100
++++ postgresql-16.2-wasm/src/bin/pg_dump/pg_dumpall.c	2024-05-08 04:14:31.831016052 +0200
+@@ -163,7 +163,7 @@
+ 		{"lock-wait-timeout", required_argument, NULL, 2},
+ 		{"no-table-access-method", no_argument, &no_table_access_method, 1},
+ 		{"no-tablespaces", no_argument, &no_tablespaces, 1},
+-		{"quote-all-identifiers", no_argument, &quote_all_identifiers, 1},
++		{"quote-all-identifiers", no_argument, &fe_utils_quote_all_identifiers, true},
+ 		{"load-via-partition-root", no_argument, &load_via_partition_root, 1},
+ 		{"role", required_argument, NULL, 3},
+ 		{"use-set-session-authorization", no_argument, &use_setsessauth, 1},
+@@ -434,7 +434,7 @@
+ 		appendPQExpBufferStr(pgdumpopts, " --no-table-access-method");
+ 	if (no_tablespaces)
+ 		appendPQExpBufferStr(pgdumpopts, " --no-tablespaces");
+-	if (quote_all_identifiers)
++	if (fe_utils_quote_all_identifiers)
+ 		appendPQExpBufferStr(pgdumpopts, " --quote-all-identifiers");
+ 	if (load_via_partition_root)
+ 		appendPQExpBufferStr(pgdumpopts, " --load-via-partition-root");
+@@ -534,8 +534,8 @@
+ 	}
+ 
+ 	/* Force quoting of all identifiers if requested. */
+-	if (quote_all_identifiers)
+-		executeCommand(conn, "SET quote_all_identifiers = true");
++	if (fe_utils_quote_all_identifiers)
++		executeCommand(conn, "SET fe_utils_quote_all_identifiers = true");
+ 
+ 	fprintf(OPF, "--\n-- PostgreSQL database cluster dump\n--\n\n");
+ 	if (verbose)

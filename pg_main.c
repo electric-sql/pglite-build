@@ -14,10 +14,9 @@ progname;
 void
 PostgresMain(const char *dbname, const char *username)
 {
-    //(void)CurrentMemoryContext;
-    puts("# 18: ERROR: PostgresMain should not be called anymore" __FILE__ );
-    //abort();
+    puts("# 22: ERROR: PostgresMain should not be called anymore" __FILE__ );
 }
+
 
 
 volatile bool send_ready_for_query = true;
@@ -27,11 +26,325 @@ volatile sigjmp_buf local_sigjmp_buf;
 
 volatile bool repl = true ;
 volatile int pg_idb_status = 0;
+volatile bool inloop = false;
 
-EMSCRIPTEN_KEEPALIVE void
-pg_initdb() {
-    puts("pg_initdb called");
+/* ================================================================================ */
+/* ================================================================================ */
+/* ================================================================================ */
+/* ================================================================================ */
+
+EMSCRIPTEN_KEEPALIVE
+FILE * single_mode_feed = NULL;
+
+
+extern void ReInitPostgres(const char *in_dbname, Oid dboid,
+			 const char *username, Oid useroid,
+			 bool load_session_libraries,
+			 bool override_allow_connections,
+			 char *out_dbname);
+
+void
+RePostgresSingleUserMain(int single_argc, char *single_argv[], const char *username)
+{
+
+puts("# 50: RePostgresSingleUserMain");
+    single_mode_feed = fopen(IDB_PIPE_SINGLE, "r");
+
+    // should be template1.
+    const char *dbname = NULL;
+
+    //leak progname = get_progname(single_argv[0]);
+printf("# 54: progname=%s for %s\n", progname, single_argv[0]);
+//	                InitStandaloneProcess(single_argv[0]);
+//	                InitializeGUCOptions();
+
+    /* Parse command-line options. */
+    process_postgres_switches(single_argc, single_argv, PGC_POSTMASTER, &dbname);
+
+printf("# 61: dbname=%s\n", dbname);
+
+//	                if (!SelectConfigFiles(userDoption, progname)) proc_exit(1);
+
+//	                checkDataDir();
+//	                ChangeToDataDir();
+
+//	                CreateDataDirLockFile(false);
+
+    LocalProcessControlFile(false);
+
+    process_shared_preload_libraries();
+
+//	                InitializeMaxBackends();
+puts("# 76 ?");
+// ? IgnoreSystemIndexes = true;
+IgnoreSystemIndexes = false;
+    process_shmem_requests();
+
+    InitializeShmemGUCs();
+
+    InitializeWalConsistencyChecking();
+//puts("# NO CreateSharedMemoryAndSemaphores");
+//      CreateSharedMemoryAndSemaphores();
+
+    PgStartTime = GetCurrentTimestamp();
+
+//puts("# NO InitProcess 'FATAL:  you already exist'");
+//    InitProcess();
+
+    SetProcessingMode(InitProcessing);
+puts("# 91: Re-InitPostgres");
+//      BaseInit();
+
+    InitPostgres(dbname, InvalidOid,	/* database to connect to */
+                 username, InvalidOid,	/* role to connect as */
+                 !am_walsender, /* honor session_preload_libraries? */
+                 false,			/* don't ignore datallowconn */
+                 NULL);			/* no out_dbname */
+/*
+puts("# 100");
+    if (PostmasterContext)
+    {
+        puts("# 103");
+        MemoryContextDelete(PostmasterContext);
+        PostmasterContext = NULL;
+    }
+*/
+    SetProcessingMode(NormalProcessing);
+
+    BeginReportingGUCOptions();
+
+    if (IsUnderPostmaster && Log_disconnections)
+        on_proc_exit(log_disconnections, 0);
+
+    pgstat_report_connect(MyDatabaseId);
+
+    /* Perform initialization specific to a WAL sender process. */
+    if (am_walsender)
+        InitWalSender();
+
+    /*
+     * Send this backend's cancellation info to the frontend.
+     */
+    if (whereToSendOutput == DestRemote)
+    {
+        StringInfoData buf;
+
+        pq_beginmessage(&buf, 'K');
+        pq_sendint32(&buf, (int32) MyProcPid);
+        pq_sendint32(&buf, (int32) MyCancelKey);
+        pq_endmessage(&buf);
+        /* Need not flush since ReadyForQuery will do it. */
+    }
+
+    /* Welcome banner for standalone case */
+    if (whereToSendOutput == DestDebug)
+        printf("\nPostgreSQL stand-alone backend %s\n", PG_VERSION);
+
+    /*
+     * Create the memory context we will use in the main loop.
+     *
+     * MessageContext is reset once per iteration of the main loop, ie, upon
+     * completion of processing of each command message from the client.
+     */
+    MessageContext = AllocSetContextCreate(TopMemoryContext,
+						                   "MessageContext",
+						                   ALLOCSET_DEFAULT_SIZES);
+
+    /*
+     * Create memory context and buffer used for RowDescription messages. As
+     * SendRowDescriptionMessage(), via exec_describe_statement_message(), is
+     * frequently executed for ever single statement, we don't want to
+     * allocate a separate buffer every time.
+     */
+    row_description_context = AllocSetContextCreate(TopMemoryContext,
+									                "RowDescriptionContext",
+									                ALLOCSET_DEFAULT_SIZES);
+    MemoryContextSwitchTo(row_description_context);
+    initStringInfo(&row_description_buf);
+    MemoryContextSwitchTo(TopMemoryContext);
+
+    /*
+     * POSTGRES main processing loop begins here
+     *
+     * If an exception is encountered, processing resumes here so we abort the
+     * current transaction and start a new one.
+     *
+     * You might wonder why this isn't coded as an infinite loop around a
+     * PG_TRY construct.  The reason is that this is the bottom of the
+     * exception stack, and so with PG_TRY there would be no exception handler
+     * in force at all during the CATCH part.  By leaving the outermost setjmp
+     * always active, we have at least some chance of recovering from an error
+     * during error recovery.  (If we get into an infinite loop thereby, it
+     * will soon be stopped by overflow of elog.c's internal state stack.)
+     *
+     * Note that we use sigsetjmp(..., 1), so that this function's signal mask
+     * (to wit, UnBlockSig) will be restored when longjmp'ing to here.  This
+     * is essential in case we longjmp'd out of a signal handler on a platform
+     * where that leaves the signal blocked.  It's not redundant with the
+     * unblock in AbortTransaction() because the latter is only called if we
+     * were inside a transaction.
+     */
+
+#if 1
+#if 1
+    if (sigsetjmp(local_sigjmp_buf, 1) != 0)
+#endif
+    {
+        /*
+         * NOTE: if you are tempted to add more code in this if-block,
+         * consider the high probability that it should be in
+         * AbortTransaction() instead.  The only stuff done directly here
+         * should be stuff that is guaranteed to apply *only* for outer-level
+         * error recovery, such as adjusting the FE/BE protocol status.
+         */
+
+        /* Since not using PG_TRY, must reset error stack by hand */
+        error_context_stack = NULL;
+
+        /* Prevent interrupts while cleaning up */
+        HOLD_INTERRUPTS();
+
+        /*
+         * Forget any pending QueryCancel request, since we're returning to
+         * the idle loop anyway, and cancel any active timeout requests.  (In
+         * future we might want to allow some timeout requests to survive, but
+         * at minimum it'd be necessary to do reschedule_timeouts(), in case
+         * we got here because of a query cancel interrupting the SIGALRM
+         * interrupt handler.)	Note in particular that we must clear the
+         * statement and lock timeout indicators, to prevent any future plain
+         * query cancels from being misreported as timeouts in case we're
+         * forgetting a timeout cancel.
+         */
+        disable_all_timeouts(false);	/* do first to avoid race condition */
+        QueryCancelPending = false;
+        idle_in_transaction_timeout_enabled = false;
+        idle_session_timeout_enabled = false;
+
+        /* Not reading from the client anymore. */
+        DoingCommandRead = false;
+
+        /* Make sure libpq is in a good state */
+        pq_comm_reset();
+
+        /* Report the error to the client and/or server log */
+        EmitErrorReport();
+
+        /*
+         * If Valgrind noticed something during the erroneous query, print the
+         * query string, assuming we have one.
+         */
+        valgrind_report_error_query(debug_query_string);
+
+        /*
+         * Make sure debug_query_string gets reset before we possibly clobber
+         * the storage it points at.
+         */
+        debug_query_string = NULL;
+
+        /*
+         * Abort the current transaction in order to recover.
+         */
+        AbortCurrentTransaction();
+
+        if (am_walsender)
+            WalSndErrorCleanup();
+
+        PortalErrorCleanup();
+
+        /*
+         * We can't release replication slots inside AbortTransaction() as we
+         * need to be able to start and abort transactions while having a slot
+         * acquired. But we never need to hold them across top level errors,
+         * so releasing here is fine. There also is a before_shmem_exit()
+         * callback ensuring correct cleanup on FATAL errors.
+         */
+        if (MyReplicationSlot != NULL)
+            ReplicationSlotRelease();
+
+        /* We also want to cleanup temporary slots on error. */
+        ReplicationSlotCleanup();
+
+        jit_reset_after_error();
+
+        /*
+         * Now return to normal top-level context and clear ErrorContext for
+         * next time.
+         */
+        MemoryContextSwitchTo(TopMemoryContext);
+        FlushErrorState();
+
+        /*
+         * If we were handling an extended-query-protocol message, initiate
+         * skip till next Sync.  This also causes us not to issue
+         * ReadyForQuery (until we get Sync).
+         */
+        if (doing_extended_query_message)
+            ignore_till_sync = true;
+
+        /* We don't have a transaction command open anymore */
+        xact_started = false;
+
+        /*
+         * If an error occurred while we were reading a message from the
+         * client, we have potentially lost track of where the previous
+         * message ends and the next one begins.  Even though we have
+         * otherwise recovered from the error, we cannot safely read any more
+         * messages from the client, so there isn't much we can do with the
+         * connection anymore.
+         */
+        if (pq_is_reading_msg())
+            ereport(FATAL,
+	                (errcode(ERRCODE_PROTOCOL_VIOLATION),
+	                 errmsg("terminating connection because protocol synchronization was lost")));
+
+        /* Now we can allow interrupts again */
+        RESUME_INTERRUPTS();
+    }
+
+    /* We can now handle ereport(ERROR) */
+    PG_exception_stack = &local_sigjmp_buf;
+
+    if (!ignore_till_sync)
+        send_ready_for_query = true;	/* initially, or after error */
+
+#endif
+
+    if (!inloop) {
+        inloop = true;
+        puts("# 314: REPL(initdb-single):Begin " __FILE__ );
+        //    emscripten_set_main_loop( (em_callback_func)interactive_one, 0, 1);
+
+        while (repl) { interactive_one(); }
+    } else {
+        // signal error
+        optind = -1;
+    }
+
+    fclose(single_mode_feed);
+
+    puts("# 325: REPL(initdb-single):End " __FILE__ );
+    puts("# 326: REPL(single after initdb):Begin(NORETURN)");
+
+
+    /* now use stdin as source */
+    repl = true;
+    single_mode_feed = NULL;
+    while (repl) { interactive_one(); }
+    puts("# 333: REPL:End Raising a 'RuntimeError Exception' to halt program NOW");
+    {
+        void (*npe)();
+        npe();
+    }
 }
+
+
+
+
+/* ================================================================================ */
+/* ================================================================================ */
+/* ================================================================================ */
+/* ================================================================================ */
+
 
 EMSCRIPTEN_KEEPALIVE void
 pg_initdb_repl(const char* std_in, const char* std_out, const char* std_err, const char* js_handler) {
@@ -49,40 +362,13 @@ pg_isready() {
 
 }
 
-#if 0
-
-#include "../bin/initdb/initdb.c"
-void fsync_pgdata(const char *pg_data, int serverVersion) {}
-void fsync_dir_recurse(const char *dir) {}
-
-
-int
-PQclientEncoding(const PGconn *conn) {
-    return -1;
-};
-
-size_t
-PQescapeStringConn(PGconn *conn,
-				   char *to, const char *from, size_t length,
-				   int *error) {
-	*to = '\0';
-	if (error)
-		*error = 1;
-	return 0;
-}
-
-#include "../interfaces/libpq/pqexpbuffer.c"
-#include "../fe_utils/string_utils.c"
-
-#endif
-
-
 EMSCRIPTEN_KEEPALIVE void
 interactive_one() {
 	int			firstchar;
 	int			c;				/* character read from getc() */
 	StringInfoData input_message;
 	StringInfoData *inBuf;
+    FILE *stream ;
 
 	/*
 	 * At top of loop, reset extended-query-message flag, so that any
@@ -117,10 +403,16 @@ interactive_one() {
 	/*
 	 * display a prompt and obtain input from the user
 	 */
-	printf("pg> ");
-	fflush(stdout);
+    if (!single_mode_feed) {
+	    printf("pg> ");
+    	fflush(stdout);
+        stream = stdin;
+    } else {
+        stream = single_mode_feed;
+    }
+
 	resetStringInfo(inBuf);
-	while ((c = interactive_getc()) != EOF)
+	while ((c = getc(stream)) != EOF)
 	{
 		if (c == '\n')
 		{
@@ -170,6 +462,9 @@ interactive_one() {
     } else {
     	/* Add '\0' to make it look the same as message case. */
 	    appendStringInfoChar(inBuf, (char) '\0');
+// beware SPAM !
+       // if (single_mode_feed)
+          //  fprintf(stderr, "#446:[%s]", inBuf->data);
     	firstchar = 'Q';
     }
 // =======================================================================
@@ -186,7 +481,7 @@ interactive_one() {
 
 				/* Set statement_timestamp() */
 				SetCurrentStatementStartTimestamp();
-//puts("# 191");
+
 				query_string = pq_getmsgstring(&input_message);
 				pq_getmsgend(&input_message);
 
@@ -197,8 +492,6 @@ interactive_one() {
 				}
 				else
 					exec_simple_query(query_string);
-//puts("# 202");
-				//valgrind_report_error_query(query_string);
 
 				send_ready_for_query = true;
 			}
@@ -425,7 +718,7 @@ interactive_one() {
 			 * it will fail to be called during other backend-shutdown
 			 * scenarios.
 			 */
-puts("# 428 proc_exit"); //proc_exit(0);
+puts("# 697:proc_exit/repl/skip"); //proc_exit(0);
             repl = false;
             return;
 
@@ -455,13 +748,6 @@ PostgresSingleUserMain(int argc, char *argv[],
 					   const char *username)
 {
 	const char *dbname = NULL;
-	// sigjmp_buf	local_sigjmp_buf;
-
-	/* these must be volatile to ensure state is preserved across longjmp:
-	volatile bool send_ready_for_query = true;
-	volatile bool idle_in_transaction_timeout_enabled = false;
-	volatile bool idle_session_timeout_enabled = false;
-*/
 
 	Assert(!IsUnderPostmaster);
 
@@ -509,7 +795,7 @@ PostgresSingleUserMain(int argc, char *argv[],
 
 	/* Initialize MaxBackends */
 	InitializeMaxBackends();
-
+puts("# 488");
 	/*
 	 * Give preloaded libraries a chance to request additional shared memory.
 	 */
@@ -853,8 +1139,10 @@ puts("# 847: REPL:Begin" __FILE__ );
 puts("\n");
 	}							/* end of input-reading loop */
 
-puts("\n\nREPL:End " __FILE__);
-abort();
+    puts("\n\nREPL:End " __FILE__);
+#if !defined(PG_INITDB_MAIN)
+    abort();
+#endif
 }
 
 
@@ -874,24 +1162,177 @@ void mkdirp(const char *p) {
 }
 #endif /* wasm */
 
-int
-main(int argc, char *argv[])
-{
+
+#if defined(PG_INITDB_MAIN)
+extern int pg_initdb_main();
+
+extern void RePostgresSingleUserMain(int single_argc, char *single_argv[], const char *username);
+
+extern void proc_exit(int code);
+
+
+EMSCRIPTEN_KEEPALIVE int
+pg_initdb() {
+    puts("# 1145: pg_initdb()");
+
+    optind = 1;
+    printf("pg_initdb_main result = %d\n", pg_initdb_main() );
+
+
+    fopen(WASM_PREFIX "/locale","r");
 /*
-TODO:
-	postgres.js:6382 warning: unsupported syscall: __syscall_prlimit64
+
+    FILE *file;
+    FILE *file_current;
+
+    file = fopen(IDB_PIPE_FILE, "r");
+    file_current = fopen(IDB_PIPE_BOOT, "w");
+
+
+    int lines = 0;
+    int counter = 0;
+    int boot_end = 0;
+    int single_lines = 0;
+
+
+    char buf[FD_BUFFER_MAX];
+
+    while( fgets(&buf[0], FD_BUFFER_MAX, file) ) {
+        counter+= strlen(buf);
+        if (!boot_end && strlen(buf)) {
+            if (!strncmp(BOOT_END_MARK, (const char *)buf, 13)) {
+                boot_end = counter+strlen(BOOT_END_MARK);
+                fprintf(file_current, "%s", buf);
+                fclose(file_current);
+                // now it is single SQL mode.
+                file_current = fopen(IDB_PIPE_SINGLE, "w");
+//fprintf(file_current, "CHECKPOINT;\n");
+                printf("# initdb boot ends at char=%d line=%d\n", boot_end, lines);
+                continue;
+            }
+        }
+
+        lines++;
+        if (boot_end)
+            single_lines++;
+        if (strlen(buf) && (buf[0]=='#'))
+            continue;
+        fprintf(file_current, "%s", buf);
+        if ( (boot_end>0) && (single_lines>25) && (single_lines<40)) {
+            fprintf(stdout, "%s", buf);
+        }
+    }
+
+    fclose(file);
+    remove(IDB_PIPE_FILE);
+    fclose(file_current);
+
+    printf("initdb commands char=%d lines=%d\n", counter, lines);
 */
-    int ret;
+
+    /* save stdin and use previous initdb output to feed boot mode */
+    int saved_stdin = dup(STDIN_FILENO);
+    {
+        puts("# restarting in boot mode for initdb");
+        freopen(IDB_PIPE_BOOT, "r", stdin);
+
+        char *boot_argv[] = {
+            WASM_PREFIX "/bin/postgres",
+            "--boot",
+            "-D", WASM_PREFIX "/base",
+            "-d","3",
+            WASM_PGOPTS,
+            "-X", "1048576",
+            NULL
+        };
+        int boot_argc = sizeof(boot_argv) / sizeof(char*) - 1;
+
+	    set_pglocale_pgservice(boot_argv[0], PG_TEXTDOMAIN("initdb"));
+
+        optind = 1;
+        BootstrapModeMain(boot_argc, boot_argv, false);
+        fclose(stdin);
+        remove(IDB_PIPE_BOOT);
+        stdin = fdopen(saved_stdin, "r");
+        /* fake a shutdown to comlplete WAL/OID states */
+        proc_exit(66);
+    }
+
+/*
+EM_ASM({
+    const filename = "/tmp/initdb.single.txt";
+    const blob = new Blob([FS.readFile(filename)]);
+    const elem = window.document.createElement('a');
+    elem.href = window.URL.createObjectURL(blob, { oneTimeOnly: true });
+    elem.download = filename;
+    document.body.appendChild(elem);
+    elem.click();
+    document.body.removeChild(elem);
+});
+*/
+    /* use previous initdb output to feed single mode */
+    {
+        puts("# restarting in single mode for initdb");
+        //freopen(IDB_PIPE_SINGLE, "r", stdin);
+
+
+        char *single_argv[] = {
+            WASM_PREFIX "/bin/postgres",
+            "--single",
+            "-d", "1", "-B", "16", "-S", "512", "-f", "siobtnmh",
+            "-D", WASM_PREFIX "/base",
+            "-F", "-O", "-j",
+            WASM_PGOPTS,
+            "template1",
+            NULL
+        };
+        int single_argc = sizeof(single_argv) / sizeof(char*) - 1;
+        optind = 1;
+
+        RePostgresSingleUserMain(single_argc, single_argv, strdup( getenv("PGUSER")));
+
+        //fclose(stdin);
+        //remove(IDB_PIPE_SINGLE);
+    }
+
+    // stdin = fdopen(saved_stdin, "r");
+
+
+    if (optind>0) {
+        puts("# going into REPL mode");
+        /* RESET getopt */
+        optind = 1;
+
+        return false;
+    }
+    puts("# exiting on initdb-single error");
+    return true;
+}
+#endif
+
+#define PGDB WASM_PREFIX "/base"
+
+EMSCRIPTEN_KEEPALIVE void
+main_pre() {
+	chdir("/");
 
     if (access("/etc/fstab", F_OK) == 0) {
     	setenv("ENVIRONMENT", "node" , 1);
     } else {
     	setenv("ENVIRONMENT", "web" , 1);
+        mkdirp("/data");
+        mkdirp("/data/data");
+        mkdirp("/data/data/pg");
+        mkdirp(WASM_PREFIX);
     }
 
-	#define PGDB WASM_PREFIX "/base"
-	argv[0] = strdup(WASM_PREFIX "/bin/postgres");
-
+    // we cannot run "locale -a" either from web or node. use a fake file
+    // as popen output
+    if (access(WASM_PREFIX "/locale", F_OK) != 0) {
+        FILE *fakeloc = fopen(WASM_PREFIX "/locale", "w");
+        fprintf(fakeloc, "C\nC.UTF-8\nPOSIX\nUTF-8\n");
+        fclose(fakeloc);
+    }
 
 	// postgres does not know where to find the server configuration file.
 	// postgres.js:1605 You must specify the --config-file or -D invocation option or set the PGDATA environment variable.
@@ -905,9 +1346,7 @@ TODO:
 	/* default path */
 	setenv("PGDATA", PGDB , 0);
 
-
-    printf("# argv0 (%s) PGDATA=%s\n PGUSER=%s ", argv[0], getenv("PGUSER"), getenv("PGDATA"));
-
+    setenv("PG_COLOR", "always", 0);
 
 puts("# ============= env dump ==================");
   for (char **env = environ; *env != 0; env++)
@@ -916,143 +1355,181 @@ puts("# ============= env dump ==================");
     printf("# %s\n", drefp);
   }
 puts("# =========================================");
-	chdir("/");
+
 	mkdirp(WASM_PREFIX);
-	mkdirp(PGDB);
-	/*
-	mkdirp(WASM_PREFIX "/lib");
-	mkdirp(WASM_PREFIX "/lib/postgresql");
-	*/
-	mkdirp(PGDB "/pg_wal");
-	mkdirp(PGDB "/pg_wal/archive_status");
-	mkdirp(PGDB "/pg_wal/summaries");
+}
 
-	mkdirp(PGDB "/pg_tblspc");
-	mkdirp(PGDB "/pg_snapshots");
-	mkdirp(PGDB "/pg_commit_ts");
-	mkdirp(PGDB "/pg_notify");
-	mkdirp(PGDB "/pg_replslot");
-	mkdirp(PGDB "/pg_twophase");
+int
+main(int argc, char *argv[])
+{
+/*
+TODO:
+	postgres.js:6382 warning: unsupported syscall: __syscall_prlimit64
+*/
+    int ret=0;
+    bool hadloop_error = false;
 
 
-	mkdirp(PGDB "/pg_logical");
-	mkdirp(PGDB "/pg_logical/snapshots");
-	mkdirp(PGDB "/pg_logical/mappings");
+	argv[0] = strdup(WASM_PREFIX "/bin/postgres");
 
+    main_pre();
 
-	/*
-	PGDATESTYLE
-	TZ
-	PG_SHMEM_ADDR
-
-	PGCTLTIMEOUT
-	PG_TEST_USE_UNIX_SOCKETS
-	INITDB_TEMPLATE
-	PSQL_HISTORY
-	TMPDIR
-	PGOPTIONS
-	*/
-
-	//reached_main = true;
+    printf("# argv0 (%s) PGUSER=%s PGDATA=%s\n", argv[0], getenv("PGUSER"), getenv("PGDATA"));
 
 	progname = get_progname(argv[0]);
 
-	/*
-	 * Platform-specific startup hacks
-	 */
-	startup_hacks(progname);
 
-	/*
-	 * Remember the physical location of the initially given argv[] array for
-	 * possible use by ps display.  On some platforms, the argv[] storage must
-	 * be overwritten in order to set the process title for ps. In such cases
-	 * save_ps_display_args makes and returns a new copy of the argv[] array.
-	 *
-	 * save_ps_display_args may also move the environment strings to make
-	 * extra room. Therefore this should be done as early as possible during
-	 * startup, to avoid entanglements with code that might save a getenv()
-	 * result pointer.
-	 */
-	argv = save_ps_display_args(argc, argv);
+    if (!mkdir(PGDB, 0700)) {
+        /* no db : run initdb now. */
+        fprintf(stderr, "db %s not found, running initdb with defaults\n", PGDB );
+        #if defined(PG_INITDB_MAIN)
+            #warning "web build"
+            hadloop_error = pg_initdb();
 
-	/*
-	 * Fire up essential subsystems: error and memory management
-	 *
-	 * Code after this point is allowed to use elog/ereport, though
-	 * localization of messages may not work right away, and messages won't go
-	 * anywhere but stderr until GUC settings get loaded.
-	 */
-	MemoryContextInit();
+        #else
+            #warning "node build"
+        #endif
 
-	/*
-	 * Set up locale information
-	 */
-	set_pglocale_pgservice(argv[0], PG_TEXTDOMAIN("postgres"));
+    } else {
+        // download a db case ?
+    	mkdirp(PGDB);
 
-	/*
-	 * In the postmaster, absorb the environment values for LC_COLLATE and
-	 * LC_CTYPE.  Individual backends will change these later to settings
-	 * taken from pg_database, but the postmaster cannot do that.  If we leave
-	 * these set to "C" then message localization might not work well in the
-	 * postmaster.
-	 */
-	init_locale("LC_COLLATE", LC_COLLATE, "");
-	init_locale("LC_CTYPE", LC_CTYPE, "");
+        // db fixup because empty dirs are no packaged
+	    /*
+	    mkdirp(WASM_PREFIX "/lib");
+	    mkdirp(WASM_PREFIX "/lib/postgresql");
+	    */
+	    mkdirp(PGDB "/pg_wal");
+	    mkdirp(PGDB "/pg_wal/archive_status");
+	    mkdirp(PGDB "/pg_wal/summaries");
 
-	/*
-	 * LC_MESSAGES will get set later during GUC option processing, but we set
-	 * it here to allow startup error messages to be localized.
-	 */
-#ifdef LC_MESSAGES
-	init_locale("LC_MESSAGES", LC_MESSAGES, "");
-#endif
-
-	/*
-	 * We keep these set to "C" always, except transiently in pg_locale.c; see
-	 * that file for explanations.
-	 */
-	init_locale("LC_MONETARY", LC_MONETARY, "C");
-	init_locale("LC_NUMERIC", LC_NUMERIC, "C");
-	init_locale("LC_TIME", LC_TIME, "C");
-
-	/*
-	 * Now that we have absorbed as much as we wish to from the locale
-	 * environment, remove any LC_ALL setting, so that the environment
-	 * variables installed by pg_perm_setlocale have force.
-	 */
-	unsetenv("LC_ALL");
-
-	/*
-	 * Catch standard options before doing much else, in particular before we
-	 * insist on not being root.
-	 */
-	if (argc > 1)
-	{
-		if (strcmp(argv[1], "--help") == 0 || strcmp(argv[1], "-?") == 0)
-		{
-			help(progname);
-			exit(0);
-		}
-		if (strcmp(argv[1], "--version") == 0 || strcmp(argv[1], "-V") == 0)
-		{
-			fputs(PG_BACKEND_VERSIONSTR, stdout);
-			exit(0);
-		}
-
-	}
-
-	if (argc > 1 && strcmp(argv[1], "--check") == 0)
-		return BootstrapModeMain(argc, argv, true);
+	    mkdirp(PGDB "/pg_tblspc");
+	    mkdirp(PGDB "/pg_snapshots");
+	    mkdirp(PGDB "/pg_commit_ts");
+	    mkdirp(PGDB "/pg_notify");
+	    mkdirp(PGDB "/pg_replslot");
+	    mkdirp(PGDB "/pg_twophase");
 
 
-    if (argc > 1 && strcmp(argv[1], "--boot") == 0) {
-        puts("1049: boot: " __FILE__ );
-        return BootstrapModeMain(argc, argv, false);
+	    mkdirp(PGDB "/pg_logical");
+	    mkdirp(PGDB "/pg_logical/snapshots");
+	    mkdirp(PGDB "/pg_logical/mappings");
+
     }
+    if (!hadloop_error) {
 
-    puts("# 1053: single: " __FILE__ );
-    PostgresSingleUserMain(argc, argv, strdup( getenv("PGUSER")));
+	    /*
+	    PGDATESTYLE
+	    TZ
+	    PG_SHMEM_ADDR
 
+	    PGCTLTIMEOUT
+	    PG_TEST_USE_UNIX_SOCKETS
+	    INITDB_TEMPLATE
+	    PSQL_HISTORY
+	    TMPDIR
+	    PGOPTIONS
+	    */
+
+	    //reached_main = true;
+
+
+	    /*
+	     * Platform-specific startup hacks
+	     */
+	    startup_hacks(progname);
+
+	    /*
+	     * Remember the physical location of the initially given argv[] array for
+	     * possible use by ps display.  On some platforms, the argv[] storage must
+	     * be overwritten in order to set the process title for ps. In such cases
+	     * save_ps_display_args makes and returns a new copy of the argv[] array.
+	     *
+	     * save_ps_display_args may also move the environment strings to make
+	     * extra room. Therefore this should be done as early as possible during
+	     * startup, to avoid entanglements with code that might save a getenv()
+	     * result pointer.
+	     */
+	    argv = save_ps_display_args(argc, argv);
+
+	    /*
+	     * Fire up essential subsystems: error and memory management
+	     *
+	     * Code after this point is allowed to use elog/ereport, though
+	     * localization of messages may not work right away, and messages won't go
+	     * anywhere but stderr until GUC settings get loaded.
+	     */
+	    MemoryContextInit();
+
+	    /*
+	     * Set up locale information
+	     */
+	    set_pglocale_pgservice(argv[0], PG_TEXTDOMAIN("postgres"));
+
+	    /*
+	     * In the postmaster, absorb the environment values for LC_COLLATE and
+	     * LC_CTYPE.  Individual backends will change these later to settings
+	     * taken from pg_database, but the postmaster cannot do that.  If we leave
+	     * these set to "C" then message localization might not work well in the
+	     * postmaster.
+	     */
+	    init_locale("LC_COLLATE", LC_COLLATE, "");
+	    init_locale("LC_CTYPE", LC_CTYPE, "");
+
+	    /*
+	     * LC_MESSAGES will get set later during GUC option processing, but we set
+	     * it here to allow startup error messages to be localized.
+	     */
+    #ifdef LC_MESSAGES
+	    init_locale("LC_MESSAGES", LC_MESSAGES, "");
+    #endif
+
+	    /*
+	     * We keep these set to "C" always, except transiently in pg_locale.c; see
+	     * that file for explanations.
+	     */
+	    init_locale("LC_MONETARY", LC_MONETARY, "C");
+	    init_locale("LC_NUMERIC", LC_NUMERIC, "C");
+	    init_locale("LC_TIME", LC_TIME, "C");
+
+	    /*
+	     * Now that we have absorbed as much as we wish to from the locale
+	     * environment, remove any LC_ALL setting, so that the environment
+	     * variables installed by pg_perm_setlocale have force.
+	     */
+	    unsetenv("LC_ALL");
+
+	    /*
+	     * Catch standard options before doing much else, in particular before we
+	     * insist on not being root.
+	     */
+	    if (argc > 1)
+	    {
+		    if (strcmp(argv[1], "--help") == 0 || strcmp(argv[1], "-?") == 0)
+		    {
+			    help(progname);
+			    exit(0);
+		    }
+		    if (strcmp(argv[1], "--version") == 0 || strcmp(argv[1], "-V") == 0)
+		    {
+			    fputs(PG_BACKEND_VERSIONSTR, stdout);
+			    exit(0);
+		    }
+
+	    }
+
+	    if (argc > 1 && strcmp(argv[1], "--check") == 0)
+		    return BootstrapModeMain(argc, argv, true);
+
+
+        if (argc > 1 && strcmp(argv[1], "--boot") == 0) {
+            puts("1049: boot: " __FILE__ );
+            return BootstrapModeMain(argc, argv, false);
+        }
+
+        puts("# 1053: single: " __FILE__ );
+        PostgresSingleUserMain(argc, argv, strdup( getenv("PGUSER")));
+    }
     puts("# 1056: " __FILE__);
     emscripten_force_exit(ret);
 	return ret;

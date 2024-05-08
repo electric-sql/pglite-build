@@ -1,11 +1,14 @@
 --- postgresql-16.2/src/include/port/emscripten.h	2024-04-30 08:02:57.615354846 +0200
-+++ postgresql-16.2-wasm/src/include/port/emscripten.h	2024-05-02 18:30:20.683162125 +0200
-@@ -0,0 +1,184 @@
++++ postgresql-16.2-wasm/src/include/port/emscripten.h	2024-05-08 16:29:53.014417533 +0200
+@@ -0,0 +1,241 @@
 +/* src/include/port/emscripten.h */
 +
 +#ifndef I_EMSCRIPTEN
 +#define I_EMSCRIPTEN
 +#define PGDLLIMPORT
++
++#include <stdbool.h>
++extern PGDLLIMPORT bool fe_utils_quote_all_identifiers;
 +
 +#include <emscripten.h>
 +
@@ -30,10 +33,28 @@
 +// force the name used with --single
 +#define WASM_USERNAME "postgres"
 +
++
++#define BOOT_END_MARK "build indices"
++#define FD_BUFFER_MAX 16384
++
++#define WASM_PGOPTS \
++        "-c", "log_checkpoints=false",\
++        "-c", "search_path=pg_catalog",\
++        "-c", "exit_on_error=true",\
++        "-c", "ignore_invalid_pages=on",\
++        "-c", "temp_buffers=8MB",\
++        "-c", "work_mem=4MB",\
++        "-c", "fsync=on",\
++        "-c", "synchronous_commit=on",\
++        "-c", "wal_buffers=4MB",\
++        "-c", "min_wal_size=80MB",\
++        "-c", "shared_buffers=128MB"
++
++
++
 +#if defined(PREFIX)
 +#define xstr(s) str(s)
 +#define str(s) #s
-+
 +#   define WASM_PREFIX xstr(PREFIX)
 +#   define PG_MAIN_INCLUDE  xstr(PATCH_MAIN)
 +#   define PG_PLUGIN_INCLUDE  xstr(PATCH_PLUGIN)
@@ -43,6 +64,11 @@
 +#   define PG_PLUGIN_INCLUDE "/data/git/pg/pg_plugin.h"
 +#endif
 +
++#define IDB_PIPE_FILE "/tmp/initdb.txt"
++#define IDB_PIPE_BOOT "/tmp/initdb.boot.txt"
++#define IDB_PIPE_SINGLE "/tmp/initdb.single.txt"
++
++
 +#define PG_FORCE_DISABLE_INLINE
 +
 +// we want client and server in the same lib for now.
@@ -50,7 +76,7 @@
 +extern const char *progname;
 +#endif
 +
-+/*#include <stdbool.h> // bool*/
++
 +/*extern bool quote_all_identifiers;*/
 +extern int	pg_char_to_encoding_private(const char *name);
 +extern const char *pg_encoding_to_char_private(int encoding);
@@ -100,8 +126,22 @@
 +#define pclose(stream) pg_pclose(stream)
 +#include <stdio.h> // FILE
 +
++EMSCRIPTEN_KEEPALIVE FILE*
++IDB_PIPE_FP = NULL;
++EMSCRIPTEN_KEEPALIVE int
++IDB_STAGE = 0;
++
 +int pg_pclose(FILE *stream) {
-+    puts("# FIXME: 81: pclose->pg_pclose: " __FILE__);
++    if (IDB_STAGE==1)
++        fprintf(stderr,"# pg_pclose(%s) 129:" __FILE__ "\n" , IDB_PIPE_BOOT);
++    if (IDB_STAGE==2)
++        fprintf(stderr,"# pg_pclose(%s) 129:" __FILE__ "\n" , IDB_PIPE_SINGLE);
++
++    if (IDB_PIPE_FP) {
++        fflush(IDB_PIPE_FP);
++        fclose(IDB_PIPE_FP);
++        IDB_PIPE_FP = NULL;
++    }
 +    return 0;
 +}
 +
@@ -109,12 +149,29 @@
 +#endif // PG_EXEC
 +
 +/* and now popen will return stderr as file handle in initdb.c */
-+#if defined(PG_INITDB)
++#if defined(PG_INITDB) && !defined(PG_MAIN)
 +#define popen(command, mode) pg_popen(command, mode)
 +#include <stdio.h> // FILE
++extern FILE* IDB_PIPE_FP;
++extern int IDB_STAGE;
 +FILE *pg_popen(const char *command, const char *type) {
-+	fprintf(stderr,"# popen[%s]\n", command);
-+	return stderr;
++    if (IDB_STAGE>1) {
++    	fprintf(stderr,"# popen[%s]\n", command);
++    	return stderr;
++    }
++
++    if (!IDB_STAGE) {
++        fprintf(stderr,"# popen[%s] (BOOT)\n", command);
++        IDB_PIPE_FP = fopen( IDB_PIPE_BOOT, "w");
++        IDB_STAGE = 1;
++    } else {
++        fprintf(stderr,"# popen[%s] (SINGLE)\n", command);
++        IDB_PIPE_FP = fopen( IDB_PIPE_SINGLE, "w");
++        IDB_STAGE = 2;
++    }
++
++    return IDB_PIPE_FP;
++
 +}
 +#endif // PG_INITDB
 +

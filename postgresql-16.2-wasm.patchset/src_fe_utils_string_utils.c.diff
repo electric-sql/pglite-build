@@ -1,12 +1,31 @@
 --- postgresql-16.2/src/fe_utils/string_utils.c	2024-02-05 22:41:37.000000000 +0100
-+++ postgresql-16.2-wasm/src/fe_utils/string_utils.c	2024-05-02 21:55:32.477368347 +0200
-@@ -23,7 +23,8 @@
++++ postgresql-16.2-wasm/src/fe_utils/string_utils.c	2024-05-08 04:09:11.630550876 +0200
+@@ -23,7 +23,9 @@
  static PQExpBuffer defaultGetLocalPQExpBuffer(void);
  
  /* Globals exported by this file */
 -int			quote_all_identifiers = 0;
-+bool			quote_all_identifiers = false;
++bool			fe_utils_quote_all_identifiers = false;
++
 +
  PQExpBuffer (*getLocalPQExpBuffer) (void) = defaultGetLocalPQExpBuffer;
  
  
+@@ -72,7 +74,7 @@
+ 	 * These checks need to match the identifier production in scan.l. Don't
+ 	 * use islower() etc.
+ 	 */
+-	if (quote_all_identifiers)
++	if (fe_utils_quote_all_identifiers)
+ 		need_quotes = true;
+ 	/* slightly different rules for first character */
+ 	else if (!((rawid[0] >= 'a' && rawid[0] <= 'z') || rawid[0] == '_'))
+@@ -425,7 +427,7 @@
+  * appendShellStringNoError() omits those characters from the result, and
+  * returns false if there were any.
+  */
+-void
++EMSCRIPTEN_KEEPALIVE void
+ appendShellString(PQExpBuffer buf, const char *str)
+ {
+ 	if (!appendShellStringNoError(buf, str))

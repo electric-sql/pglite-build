@@ -1,5 +1,5 @@
 --- postgresql-16.2/src/backend/storage/buffer/bufmgr.c	2024-02-05 22:41:37.000000000 +0100
-+++ postgresql-16.2-wasm/src/backend/storage/buffer/bufmgr.c	2024-05-02 15:05:35.371642349 +0200
++++ postgresql-16.2-wasm/src/backend/storage/buffer/bufmgr.c	2024-05-06 08:20:15.239406518 +0200
 @@ -1134,16 +1134,16 @@
  			{
  				ereport(WARNING,

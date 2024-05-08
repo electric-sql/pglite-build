@@ -1,16 +1,6 @@
 --- postgresql-16.2/src/backend/storage/ipc/dsm.c	2024-02-05 22:41:37.000000000 +0100
-+++ postgresql-16.2-wasm/src/backend/storage/ipc/dsm.c	2024-05-02 15:05:35.372642334 +0200
-@@ -154,7 +154,8 @@
- 	Size		segsize;
- 
- 	Assert(!IsUnderPostmaster);
--
-+puts("# why ? 157: " __FILE__ );
-+// return;
- 	/*
- 	 * If we're using the mmap implementations, clean up any leftovers.
- 	 * Cleanup isn't needed on Windows, and happens earlier in startup for
-@@ -294,7 +295,8 @@
++++ postgresql-16.2-wasm/src/backend/storage/ipc/dsm.c	2024-05-07 14:21:43.318977277 +0200
+@@ -294,7 +294,8 @@
  {
  	DIR		   *dir;
  	struct dirent *dent;
