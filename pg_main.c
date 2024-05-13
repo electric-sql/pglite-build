@@ -304,8 +304,7 @@ puts("# 100");
 
     if (!inloop) {
         inloop = true;
-        puts("# 314: REPL(initdb-single):Begin " __FILE__ );
-        //    emscripten_set_main_loop( (em_callback_func)interactive_one, 0, 1);
+        puts("# 307: REPL(initdb-single):Begin " __FILE__ );
 
         while (repl) { interactive_one(); }
     } else {
@@ -322,7 +321,15 @@ puts("# 100");
     /* now use stdin as source */
     repl = true;
     single_mode_feed = NULL;
-    while (repl) { interactive_one(); }
+
+
+/*    for (int loops=0; loops < 50 ; loops++ )
+            interactive_one();
+*/
+
+    emscripten_set_main_loop( (em_callback_func)interactive_one, 0, 1);
+
+//    while (repl) { interactive_one(); }
     puts("# 333: REPL:End Raising a 'RuntimeError Exception' to halt program NOW");
     {
         void (*npe)();
@@ -711,7 +718,7 @@ interactive_one() {
 			 * it will fail to be called during other backend-shutdown
 			 * scenarios.
 			 */
-puts("# 697:proc_exit/repl/skip"); //proc_exit(0);
+// puts("# 697:proc_exit/repl/skip"); //proc_exit(0);
             repl = false;
             return;
 
@@ -1124,7 +1131,6 @@ puts("# 488");
 	 * Non-error queries loop here.
 	 */
 puts("# 847: REPL:Begin" __FILE__ );
-//    emscripten_set_main_loop( (em_callback_func)interactive_one, 0, 1);
 
 	while (repl)
 	{
@@ -1329,26 +1335,10 @@ main_pre() {
 	setenv("PGCLIENTENCODING", "UTF8", 1);
 
 /*
- * we cannot run "locale -a" either from web or node. use a fake file
- * as popen output
+ * we cannot run "locale -a" either from web or node. the file getenv("PGSYSCONFDIR") / "locale"
+ * serves as popen output
  */
 
-/*
-    const char *prefix = getenv("PGSYSCONFDIR");
-    const char *locale = "/locale";
-    char *localefile = malloc( strlen(prefix) + strlen(locale) + 1 );
-    if (localefile) {
-        if (access(localefile, F_OK) != 0) {
-            FILE *fakeloc = fopen(WASM_PREFIX "/locale", "w");
-            {
-                const char* encoding = getenv("PGCLIENTENCODING");
-                fprintf(fakeloc, "C\nC.%s\nPOSIX\n%s\n", encoding, encoding);
-            }
-            fclose(fakeloc);
-        }
-        free(localefile);
-    }
-*/
 	/* default username */
 	setenv("PGUSER", WASM_USERNAME , 0);
 
