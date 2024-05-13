@@ -5,9 +5,9 @@
 ARCHIVE=postgresql-16.2.tar.bz2
 
 
-[ -f ${ARCHIVE} ] || wget -c https://ftp.postgresql.org/pub/source/v16.2/${ARCHIVE}
+[ -f ${ARCHIVE} ] || wget -q -c https://ftp.postgresql.org/pub/source/v16.2/${ARCHIVE}
 
-tar xvfj ${ARCHIVE}
+tar xfj ${ARCHIVE}
 
 cd postgresql-16.2
 > ./src/template/emscripten

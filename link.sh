@@ -63,7 +63,7 @@ PG_O="../../src/fe_utils/string_utils.o ../../src/common/logging.o \
  ../../src/timezone/localtime.o \
  ../../src/timezone/pgtz.o \
  ../../src/timezone/strftime.o \
- /data/git/pg/postgresql-16.2-wasm/pg_initdb.o"
+ ../../pg_initdb.o"
 
 PG_L="-L../../src/port -L../../src/common \
  ../../src/common/libpgcommon_srv.a ../../src/port/libpgport_srv.a"
