@@ -1,6 +1,6 @@
 --- postgresql-16.2/src/include/port/emscripten.h	2024-04-30 08:02:57.615354846 +0200
-+++ postgresql-16.2-wasm/src/include/port/emscripten.h	2024-05-08 16:29:53.014417533 +0200
-@@ -0,0 +1,241 @@
++++ postgresql-16.2-wasm/src/include/port/emscripten.h	2024-05-13 09:23:35.055947574 +0200
+@@ -0,0 +1,298 @@
 +/* src/include/port/emscripten.h */
 +
 +#ifndef I_EMSCRIPTEN
@@ -77,6 +77,8 @@
 +#endif
 +
 +
++
++
 +/*extern bool quote_all_identifiers;*/
 +extern int	pg_char_to_encoding_private(const char *name);
 +extern const char *pg_encoding_to_char_private(int encoding);
@@ -108,6 +110,9 @@
 +// #define lowerstr(str) pg_lowerstr(str)
 +
 +
++
++
++
 +/*
 +#define geteuid(void) pg_geteuid(void)
 +#include <sys/types.h>
@@ -121,6 +126,7 @@
 + * popen / pclose for initdb is routed to stderr
 + * link a pclose replacement when we are in exec.c ( PG_EXEC defined )
 + */
++
 +
 +#if defined(PG_EXEC)
 +#define pclose(stream) pg_pclose(stream)
@@ -148,7 +154,11 @@
 +
 +#endif // PG_EXEC
 +
-+/* and now popen will return stderr as file handle in initdb.c */
++
++/*
++ * and now popen will return predefined slot from a file list
++ * as file handle in initdb.c
++ */
 +#if defined(PG_INITDB) && !defined(PG_MAIN)
 +#define popen(command, mode) pg_popen(command, mode)
 +#include <stdio.h> // FILE
@@ -174,6 +184,53 @@
 +
 +}
 +#endif // PG_INITDB
++
++
++/*
++ * OpenPipeStream : another kind of pipe open in fd.c
++ * known to try "locale -a" from collationcmds.c when in initdb.
++ *
++ */
++#if defined(PG_FD)
++#include <string.h>  // strlen
++#include <unistd.h> // access+F_OK
++#include <stdio.h> // FILE+fprintf
++
++FILE *
++wasm_OpenPipeStream(const char *command, const char *mode) {
++    fprintf(stderr, "# 192:%s: OpenPipeStream(command=%s, mode=%s)\n", __FILE__, command, mode);
++    FILE *result = NULL;
++    const char *prefix = getenv("PGSYSCONFDIR");
++    const char *locale = "/locale";
++    char *localefile = malloc( strlen(prefix) + strlen(locale) + 1 );
++    if (localefile) {
++        if (access(localefile, F_OK) != 0) {
++            FILE *fakeloc = fopen(localefile, "w");
++            {
++                const char* encoding = getenv("PGCLIENTENCODING");
++                fprintf(fakeloc, "C\nC.%s\nPOSIX\n%s\n", encoding, encoding);
++            }
++            if (fakeloc)
++                fclose(fakeloc);
++        }
++        result = fopen(localefile, "r");
++        free(localefile);
++    }
++
++    return result;
++}
++
++/*int
++wasm_ClosePipeStream(FILE *handle) {
++    puts("wasm_ClosePipeStream");
++}
++*/
++#else
++#   define OpenPipeStream(cmd, mode) wasm_OpenPipeStream(cmd, mode)
++/*#   define ClosePipeStream(handle) wasm_ClosePipeStream(handle)*/
++#endif
++
++
 +
 +
 +/*

@@ -1,5 +1,14 @@
 --- postgresql-16.2/src/backend/storage/file/fd.c	2024-02-05 22:41:37.000000000 +0100
-+++ postgresql-16.2-wasm/src/backend/storage/file/fd.c	2024-05-06 08:20:15.240406504 +0200
++++ postgresql-16.2-wasm/src/backend/storage/file/fd.c	2024-05-09 12:27:16.697289944 +0200
+@@ -69,7 +69,7 @@
+  *
+  *-------------------------------------------------------------------------
+  */
+-
++#define PG_FD
+ #include "postgres.h"
+ 
+ #include <dirent.h>
 @@ -478,6 +478,11 @@
  void
  pg_flush_data(int fd, off_t offset, off_t nbytes)

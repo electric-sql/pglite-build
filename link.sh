@@ -1,14 +1,16 @@
 #!/bin/bash
 
-DEMO=/tmp/sdk
+WEB=/tmp/sdk
+mkdir -p $WEB
+
 
 # client lib ( eg psycopg ) for websocketed pg server
-emcc $CDEBUG -shared -o ${DEMO}/libpgc.so \
+emcc $CDEBUG -shared -o ${WEB}/libpgc.so \
      ./src/interfaces/libpq/libpq.a \
      ./src/port/libpgport.a \
      ./src/common/libpgcommon.a
 
-file ${DEMO}/libpgc.so
+file ${WEB}/libpgc.so
 
 pushd src
 
@@ -46,11 +48,11 @@ pushd src/backend
 # https://github.com/llvm/llvm-project/issues/50623
 
 
-cp -vf ../../src/interfaces/ecpg/ecpglib/libecpg.so ${DEMO}/
+cp -vf ../../src/interfaces/ecpg/ecpglib/libecpg.so ${WEB}/
 
 
 echo " ---------- building web test PREFIX=$PREFIX ------------"
-du -hs ${DEMO}/libpg?.*
+du -hs ${WEB}/libpg?.*
 
 PG_O="../../src/fe_utils/string_utils.o ../../src/common/logging.o \
  $(find . -type f -name "*.o" \
@@ -94,8 +96,8 @@ fi
  --preload-file ${PREFIX}/bin/initdb@${PREFIX}/bin/initdb \
  -o index.html $PG_O $PG_L
 
-mv -v index.* ${DEMO}/
+mv -v index.* ${WEB}/
 
-du -hs ${DEMO}/index.*
+du -hs ${WEB}/index.*
 
 popd
