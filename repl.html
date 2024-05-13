@@ -1,9 +1,7 @@
-<!doctype html>
 <html lang="en-us">
   <head>
     <meta charset="utf-8">
-    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
-    <title>Emscripten-Generated Code</title>
+    <title>PG SHELL TEST</title>
     <style>
       .emscripten { padding-right: 0; margin-left: auto; margin-right: auto; display: block; }
       textarea.emscripten { font-family: monospace; width: 80%; }
@@ -75,79 +73,217 @@
     <div id="repl"></div>
 
     <hr/>
-    <textarea class="emscripten" id="output" rows="8"></textarea>
+    <textarea class="emscripten" id="output" rows="25" ></textarea>
     <hr>
     <script type='text/javascript'>
       var statusElement = document.getElementById('status');
       var progressElement = document.getElementById('progress');
       var spinnerElement = document.getElementById('spinner');
 
-        var term = new Terminal();
+        var term = new Terminal({
+        rendererType : "webgl",
+        experimentalCharAtlas : "webgl",
+        allowProposedApi : true ,   // xterm 0.5 + sixel
+        fontFamily: 'Courier-new, courier, monospace',
+        fontSize: 12,
+        cols:132,
+        rows:32
+    });
         term.open(document.getElementById('repl'));
         //term.write('Hello from \x1B[1;3;31mxterm.js\x1B[0m $ ')
         window.vt = term
-
-        window.prompt = function () {
-            const current = window.test_data
-            window.test_data  = null
-            return current
-        }
-
-    function fn_stdout(text) {
-        vt.write(text)
-        vt.write("\r\n")
+/*
+   function fn_stdin() {
+        const current = window.test_data
+        if (current)
+            console.log("Sending", current)
+        window.test_data  = null
+        return current
     }
 
-    window.test_step = 0
-    window.test_data = null
+    window.fn_stdin = fn_stdin
+*/
 
+    window.buffer_stdout = ""
+    window.flushed_stdout = false
+
+    function fnc_stdout(code) {
+
+        var flush = (code == 4)
+
+        if (flush) {
+            flushed_stdout = true
+        } else {
+            if (code == 10) {
+                if (flushed_stdout) {
+                    flushed_stdout = false
+                    return
+                }
+
+                buffer_stdout += "\r\n";
+                flush = true
+            }
+            flushed_stdout = false
+        }
+
+        if (buffer_stdout != "") {
+            if (flush) {
+                if (buffer_stdout.startsWith(sixel_prefix)) {
+                    console.info("[sixel image]");
+                    vt.write(buffer_stdout);
+                } else {
+                    if (buffer_stdout.startsWith("Looks like you are rendering"))
+                        return;
+
+                    vt.write( b_utf8(buffer_stdout) )
+                }
+                buffer_stdout = ""
+                return
+            }
+        }
+        if (!flush)
+            buffer_stdout += String.fromCharCode(code);
+    }
+
+
+    function fnc_stderr(c) {
+        if (!stderr_on) {
+            stderr_on = true
+            vt.write("\x1B[1;3;31m")
+        }
+        if (c==10) {
+            if (stderr_on) {
+                stderr_on = false
+                vt.write('\x1B[0m')
+            }
+            vt.write("\r\n")
+        } else
+            vt.write( String.fromCharCode(c) )
+    }
+
+   function fnc_stdin() {
+        if (test_data.length>0) {
+            const c = test_data.shift()
+            return c
+        }
+// should never happen, blocking !
+        console.error("pump", "EOF")
+        return null;
+    }
+
+    window.stderr_on = false
+    window.fnc_stdout = fnc_stdout
+    window.fnc_stderr = fnc_stderr
+    window.fnc_stdin = fnc_stdin
+
+
+    window.test_step = 0
+    window.test_data = []
+
+
+function toUTF8Array(str) {
+    var utf8 = [];
+    for (var i=0; i < str.length; i++) {
+        var charcode = str.charCodeAt(i);
+        if (charcode < 0x80) utf8.push(charcode);
+        else if (charcode < 0x800) {
+            utf8.push(0xc0 | (charcode >> 6),
+                      0x80 | (charcode & 0x3f));
+        }
+        else if (charcode < 0xd800 || charcode >= 0xe000) {
+            utf8.push(0xe0 | (charcode >> 12),
+                      0x80 | ((charcode>>6) & 0x3f),
+                      0x80 | (charcode & 0x3f));
+        }
+        // surrogate pair
+        else {
+            i++;
+            // UTF-16 encodes 0x10000-0x10FFFF by
+            // subtracting 0x10000 and splitting the
+            // 20 bits of 0x0-0xFFFFF into two halves
+            charcode = 0x10000 + (((charcode & 0x3ff)<<10)
+                      | (str.charCodeAt(i) & 0x3ff))
+            utf8.push(0xf0 | (charcode >>18),
+                      0x80 | ((charcode>>12) & 0x3f),
+                      0x80 | ((charcode>>6) & 0x3f),
+                      0x80 | (charcode & 0x3f));
+        }
+    }
+    return utf8;
+}
+
+    const text_codec = new TextDecoder()
+    const sixel_prefix = String.fromCharCode(27)+"Pq"
+
+    function b_utf8(s) {
+        var ary = []
+        for ( var i=0; i<s.length; i+=1 ) {
+            ary.push( s.substr(i,1).charCodeAt(0) )
+        }
+        return text_codec.decode(  new Uint8Array(ary) )
+    }
 
     function test_drive(step) {
         var data = null
         switch (test_step) {
             case 0:
-                data = "SELECT now();"
+                data = "SHOW client_encoding;";
                 break
 
             case 1:
-                data = "SELECT 1;"
+                data = "SELECT 'é';"
                 break
 
             case 2:
-                data = "SELECT 2;"
+                data = "SELECT now();"
                 break
 
-        default:
-            data = null;
-
         }
 
-
-        if (data) {
+        if (data!=null) {
             test_step++
-            window.test_data = data + "\n"
-            console.log("SQL:", test_data)
-        }
+            Array.prototype.push.apply(test_data, toUTF8Array(data+"\n\n") )
+//            for (const c of Array.from(data + "\n\n")) {
+//                const charcode = c.codePointAt(0)
+//                if (charcode < 0x80) {
+//                    test_data.push(charcode)
+//                } else {
 
-        setTimeout(test_drive, 3000);
+//                    if (charcode < 0x800) {
+//                       test_data.push(0xc0 | (charcode >> 6), 0x80 | (charcode & 0x3f));
+//                    }  else if (charcode < 0xd800 || charcode >= 0xe000) {
+//                        test_data.push(0xe0 | (charcode >> 12),
+//                              0x80 | ((charcode>>6) & 0x3f),
+//                              0x80 | (charcode & 0x3f));
+//                    } else {
+//                        // surrogate pair
+//                        console.error("UTF-16 not supported");
+//                    }
+//                }
+//            }
+
+            console.log("SQL:", data, "=>", test_data)
+            setTimeout(test_drive, 2000);
+        } else {
+            console.log("SQL:End")
+        }
 
     }
 
 
-
     function prerun() {
-        console.log("prerun")
+        console.log("prerun", window.FS, window.instance.FS)
     }
 
     function postrun() {
         console.log("postrun")
-        setTimeout(test_drive, 3000)
+        setTimeout(test_drive, 2000)
     }
 
 
     var Module = {
-        print: fn_stdout,
-/*
+
+        print: (()=>{
           var element = document.getElementById('output');
           if (element) element.value = ''; // clear browser cache
           return (...args) => {
@@ -165,7 +301,7 @@
           };
 
         })(),
-*/
+
         canvas: (() => {
           var canvas = document.getElementById('canvas');
 
@@ -176,10 +312,19 @@
 
           return canvas;
         })(),
+/*
+        stdin : fnc_stdin,
+*/
+        stdout : fnc_stdout,
+        stderr : fnc_stderr,
 
         preRun : [ prerun ],
         postRun : [ postrun ],
 
+        locateFile : function(path, prefix) {
+            console.log("locateFile: "+path+' '+prefix);
+            return prefix + path;
+        },
 
         setStatus: (text) => {
           if (!Module.setStatus.last) Module.setStatus.last = { time: Date.now(), text: '' };
@@ -209,6 +354,7 @@
           Module.setStatus(left ? 'Preparing... (' + (this.totalDependencies-left) + '/' + this.totalDependencies + ')' : 'All downloads complete.');
         }
       };
+        window.instance = Module
       Module.setStatus('Downloading...');
       window.onerror = () => {
         Module.setStatus('Exception thrown, see JavaScript console');

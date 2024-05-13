@@ -1,6 +1,6 @@
 --- postgresql-16.2/src/include/port/emscripten.h	2024-04-30 08:02:57.615354846 +0200
-+++ postgresql-16.2-wasm/src/include/port/emscripten.h	2024-05-13 09:23:35.055947574 +0200
-@@ -0,0 +1,298 @@
++++ postgresql-16.2-wasm/src/include/port/emscripten.h	2024-05-13 16:53:05.055030911 +0200
+@@ -0,0 +1,301 @@
 +/* src/include/port/emscripten.h */
 +
 +#ifndef I_EMSCRIPTEN
@@ -198,17 +198,20 @@
 +
 +FILE *
 +wasm_OpenPipeStream(const char *command, const char *mode) {
-+    fprintf(stderr, "# 192:%s: OpenPipeStream(command=%s, mode=%s)\n", __FILE__, command, mode);
++
 +    FILE *result = NULL;
 +    const char *prefix = getenv("PGSYSCONFDIR");
 +    const char *locale = "/locale";
 +    char *localefile = malloc( strlen(prefix) + strlen(locale) + 1 );
++    localefile = strcat(prefix,locale);
++    fprintf(stderr, "# 204:%s: OpenPipeStream(command=%s, mode=%s)\n#\tredirected to %s\n", __FILE__, command, mode, localefile);
 +    if (localefile) {
 +        if (access(localefile, F_OK) != 0) {
 +            FILE *fakeloc = fopen(localefile, "w");
 +            {
 +                const char* encoding = getenv("PGCLIENTENCODING");
 +                fprintf(fakeloc, "C\nC.%s\nPOSIX\n%s\n", encoding, encoding);
++                puts("#211 locale created");
 +            }
 +            if (fakeloc)
 +                fclose(fakeloc);

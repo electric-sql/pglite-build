@@ -1,11 +1,14 @@
 
 #if defined(PG_MAIN)
 
+bool is_node = false;
+
 EMSCRIPTEN_KEEPALIVE bool
 quote_all_identifiers = false;
 
 
 EMSCRIPTEN_KEEPALIVE void interactive_one();
+EMSCRIPTEN_KEEPALIVE void interactive_file();
 
 /* exported from postmaster.h */
 EMSCRIPTEN_KEEPALIVE const char*
@@ -36,6 +39,7 @@ volatile bool inloop = false;
 EMSCRIPTEN_KEEPALIVE
 FILE * single_mode_feed = NULL;
 
+bool force_echo = false;
 
 extern void ReInitPostgres(const char *in_dbname, Oid dboid,
 			 const char *username, Oid useroid,
@@ -306,7 +310,7 @@ puts("# 100");
         inloop = true;
         puts("# 307: REPL(initdb-single):Begin " __FILE__ );
 
-        while (repl) { interactive_one(); }
+        while (repl) { interactive_file(); }
     } else {
         // signal error
         optind = -1;
@@ -322,19 +326,17 @@ puts("# 100");
     repl = true;
     single_mode_feed = NULL;
 
-
-/*    for (int loops=0; loops < 50 ; loops++ )
-            interactive_one();
-*/
-
+    force_echo = true;
+#if 1
     emscripten_set_main_loop( (em_callback_func)interactive_one, 0, 1);
-
-//    while (repl) { interactive_one(); }
+#else
+    while (repl) { interactive_one(); }
     puts("# 333: REPL:End Raising a 'RuntimeError Exception' to halt program NOW");
     {
-        void (*npe)();
+        void (*npe)() = NULL;
         npe();
     }
+#endif
 }
 
 
@@ -344,7 +346,6 @@ puts("# 100");
 /* ================================================================================ */
 /* ================================================================================ */
 /* ================================================================================ */
-
 
 EMSCRIPTEN_KEEPALIVE void
 pg_initdb_repl(const char* std_in, const char* std_out, const char* std_err, const char* js_handler) {
@@ -362,8 +363,21 @@ pg_isready() {
 
 }
 
+int loops = 0;
+
+
+
+EM_JS(int, peek_fd, (int fd), {
+    return test_data.length;
+});
+
+EM_JS(int, fnc_getfd, (int fd), {
+    return fnc_stdin()
+});
+
+
 EMSCRIPTEN_KEEPALIVE void
-interactive_one() {
+interactive_file() {
 	int			firstchar;
 	int			c;				/* character read from getc() */
 	StringInfoData input_message;
@@ -740,6 +754,411 @@ interactive_one() {
 							firstchar)));
 	}
 }
+
+
+
+
+
+EMSCRIPTEN_KEEPALIVE void
+interactive_one() {
+	int			firstchar;
+	int			c;				/* character read from getc() */
+	StringInfoData input_message;
+	StringInfoData *inBuf;
+    FILE *stream ;
+
+    if (force_echo) {
+        if ( loops>60) {
+            puts("alive");
+            loops = 0;
+        }
+    }
+
+	/*
+	 * At top of loop, reset extended-query-message flag, so that any
+	 * errors encountered in "idle" state don't provoke skip.
+	 */
+	doing_extended_query_message = false;
+#if 0
+	/*
+	 * For valgrind reporting purposes, the "current query" begins here.
+	 */
+#ifdef USE_VALGRIND
+	old_valgrind_error_count = VALGRIND_COUNT_ERRORS;
+#endif
+#endif
+
+	/*
+	 * Release storage left over from prior query cycle, and create a new
+	 * query input buffer in the cleared MessageContext.
+	 */
+	MemoryContextSwitchTo(MessageContext);
+	MemoryContextResetAndDeleteChildren(MessageContext);
+
+	initStringInfo(&input_message);
+    inBuf = &input_message;
+	DoingCommandRead = true;
+
+	//firstchar = ReadCommand(&input_message);
+	if (whereToSendOutput == DestRemote)
+		firstchar = SocketBackend(&input_message);
+	else {
+
+	    /*
+	     * display a prompt and obtain input from the user
+	     */
+        stream = stdin;
+
+    	resetStringInfo(inBuf);
+
+        while (peek_fd(0)>0) {
+            c = fnc_getfd(0);
+            //fprintf(stderr, "813-peek[%c]\n", c);
+
+            // this is an error if buffer is empty
+            if (c == EOF) {
+                break;
+            }
+
+	        if (c == '\n') {
+		        if (UseSemiNewlineNewline) {
+			        /*
+			         * In -j mode, semicolon followed by two newlines ends the
+			         * command; otherwise treat newline as regular character.
+			         */
+			        if (inBuf->len > 1 &&
+				        inBuf->data[inBuf->len - 1] == '\n' &&
+				        inBuf->data[inBuf->len - 2] == ';')
+			        {
+				        /* might as well drop the second newline */
+				        break;
+			        }
+		        } else {
+			        /*
+			         * In plain mode, newline ends the command unless preceded by
+			         * backslash.
+			         */
+			        if ( (inBuf->len > 0) && (inBuf->data[inBuf->len - 1] == '\\') ) {
+				        /* discard backslash from inBuf */
+				        inBuf->data[--inBuf->len] = '\0';
+				        /* discard newline too */
+				        continue;
+			        } else {
+				        /* keep the newline character, but end the command */
+				        appendStringInfoChar(inBuf, '\n');
+				        break;
+			        }
+		        }
+	        }
+
+            /* Not newline, or newline treated as regular character */
+            appendStringInfoChar(inBuf, (char) c);
+
+        }
+
+        if (c == EOF && inBuf->len == 0) {
+            fprintf(stderr, "858-EOF !!!\n");
+	        firstchar = EOF;
+
+        } else {
+            /* Add '\0' to make it look the same as message case. */
+            appendStringInfoChar(inBuf, (char) '\0');
+
+            if (force_echo && inBuf->len >2)
+                fprintf(stdout, "pg> %s", inBuf->data);
+        	firstchar = 'Q';
+            // process query line
+        }
+// =======================================================================
+
+    }
+
+	switch (firstchar)
+	{
+		case 'Q':			/* simple query */
+			{
+				const char *query_string;
+
+				/* Set statement_timestamp() */
+				SetCurrentStatementStartTimestamp();
+
+				query_string = pq_getmsgstring(&input_message);
+				pq_getmsgend(&input_message);
+
+				if (am_walsender)
+				{
+					if (!exec_replication_command(query_string))
+						exec_simple_query(query_string);
+				}
+				else
+					exec_simple_query(query_string);
+
+				send_ready_for_query = true;
+			}
+			break;
+
+		case 'P':			/* parse */
+			{
+				const char *stmt_name;
+				const char *query_string;
+				int			numParams;
+				Oid		   *paramTypes = NULL;
+
+				forbidden_in_wal_sender(firstchar);
+
+				/* Set statement_timestamp() */
+				SetCurrentStatementStartTimestamp();
+
+				stmt_name = pq_getmsgstring(&input_message);
+				query_string = pq_getmsgstring(&input_message);
+				numParams = pq_getmsgint(&input_message, 2);
+				if (numParams > 0)
+				{
+					paramTypes = palloc_array(Oid, numParams);
+					for (int i = 0; i < numParams; i++)
+						paramTypes[i] = pq_getmsgint(&input_message, 4);
+				}
+				pq_getmsgend(&input_message);
+
+				exec_parse_message(query_string, stmt_name,
+								   paramTypes, numParams);
+
+				//valgrind_report_error_query(query_string);
+			}
+			break;
+
+		case 'B':			/* bind */
+			forbidden_in_wal_sender(firstchar);
+
+			/* Set statement_timestamp() */
+			SetCurrentStatementStartTimestamp();
+
+			/*
+			 * this message is complex enough that it seems best to put
+			 * the field extraction out-of-line
+			 */
+			exec_bind_message(&input_message);
+
+			/* exec_bind_message does valgrind_report_error_query */
+			break;
+
+		case 'E':			/* execute */
+			{
+				const char *portal_name;
+				int			max_rows;
+
+				forbidden_in_wal_sender(firstchar);
+
+				/* Set statement_timestamp() */
+				SetCurrentStatementStartTimestamp();
+
+				portal_name = pq_getmsgstring(&input_message);
+				max_rows = pq_getmsgint(&input_message, 4);
+				pq_getmsgend(&input_message);
+
+				exec_execute_message(portal_name, max_rows);
+
+				/* exec_execute_message does valgrind_report_error_query */
+			}
+			break;
+
+		case 'F':			/* fastpath function call */
+			forbidden_in_wal_sender(firstchar);
+
+			/* Set statement_timestamp() */
+			SetCurrentStatementStartTimestamp();
+
+			/* Report query to various monitoring facilities. */
+			pgstat_report_activity(STATE_FASTPATH, NULL);
+			set_ps_display("<FASTPATH>");
+
+			/* start an xact for this function invocation */
+			start_xact_command();
+
+			/*
+			 * Note: we may at this point be inside an aborted
+			 * transaction.  We can't throw error for that until we've
+			 * finished reading the function-call message, so
+			 * HandleFunctionRequest() must check for it after doing so.
+			 * Be careful not to do anything that assumes we're inside a
+			 * valid transaction here.
+			 */
+
+			/* switch back to message context */
+			MemoryContextSwitchTo(MessageContext);
+
+			HandleFunctionRequest(&input_message);
+
+			/* commit the function-invocation transaction */
+			finish_xact_command();
+
+		    // valgrind_report_error_query("fastpath function call");
+
+			send_ready_for_query = true;
+			break;
+
+		case 'C':			/* close */
+			{
+				int			close_type;
+				const char *close_target;
+
+				forbidden_in_wal_sender(firstchar);
+
+				close_type = pq_getmsgbyte(&input_message);
+				close_target = pq_getmsgstring(&input_message);
+				pq_getmsgend(&input_message);
+
+				switch (close_type)
+				{
+					case 'S':
+						if (close_target[0] != '\0')
+							DropPreparedStatement(close_target, false);
+						else
+						{
+							/* special-case the unnamed statement */
+							drop_unnamed_stmt();
+						}
+						break;
+					case 'P':
+						{
+							Portal		portal;
+
+							portal = GetPortalByName(close_target);
+							if (PortalIsValid(portal))
+								PortalDrop(portal, false);
+						}
+						break;
+					default:
+						ereport(ERROR,
+								(errcode(ERRCODE_PROTOCOL_VIOLATION),
+								 errmsg("invalid CLOSE message subtype %d",
+										close_type)));
+						break;
+				}
+
+				if (whereToSendOutput == DestRemote)
+					pq_putemptymessage('3');	/* CloseComplete */
+
+				//valgrind_report_error_query("CLOSE message");
+			}
+			break;
+
+		case 'D':			/* describe */
+			{
+				int			describe_type;
+				const char *describe_target;
+
+				forbidden_in_wal_sender(firstchar);
+
+				/* Set statement_timestamp() (needed for xact) */
+				SetCurrentStatementStartTimestamp();
+
+				describe_type = pq_getmsgbyte(&input_message);
+				describe_target = pq_getmsgstring(&input_message);
+				pq_getmsgend(&input_message);
+
+				switch (describe_type)
+				{
+					case 'S':
+						exec_describe_statement_message(describe_target);
+						break;
+					case 'P':
+						exec_describe_portal_message(describe_target);
+						break;
+					default:
+						ereport(ERROR,
+								(errcode(ERRCODE_PROTOCOL_VIOLATION),
+								 errmsg("invalid DESCRIBE message subtype %d",
+										describe_type)));
+						break;
+				}
+
+				// valgrind_report_error_query("DESCRIBE message");
+			}
+			break;
+
+		case 'H':			/* flush */
+			pq_getmsgend(&input_message);
+			if (whereToSendOutput == DestRemote)
+				pq_flush();
+			break;
+
+		case 'S':			/* sync */
+			pq_getmsgend(&input_message);
+			finish_xact_command();
+			//valgrind_report_error_query("SYNC message");
+			send_ready_for_query = true;
+			break;
+
+			/*
+			 * 'X' means that the frontend is closing down the socket. EOF
+			 * means unexpected loss of frontend connection. Either way,
+			 * perform normal shutdown.
+			 */
+		case EOF:
+
+			/* for the cumulative statistics system */
+			pgStatSessionEndCause = DISCONNECT_CLIENT_EOF;
+
+			/* FALLTHROUGH */
+
+		case 'X':
+
+			/*
+			 * Reset whereToSendOutput to prevent ereport from attempting
+			 * to send any more messages to client.
+			 */
+			if (whereToSendOutput == DestRemote)
+				whereToSendOutput = DestNone;
+
+			/*
+			 * NOTE: if you are tempted to add more code here, DON'T!
+			 * Whatever you had in mind to do should be set up as an
+			 * on_proc_exit or on_shmem_exit callback, instead. Otherwise
+			 * it will fail to be called during other backend-shutdown
+			 * scenarios.
+			 */
+// puts("# 697:proc_exit/repl/skip"); //proc_exit(0);
+            repl = false;
+            return;
+
+		case 'd':			/* copy data */
+		case 'c':			/* copy done */
+		case 'f':			/* copy fail */
+
+			/*
+			 * Accept but ignore these messages, per protocol spec; we
+			 * probably got here because a COPY failed, and the frontend
+			 * is still sending data.
+			 */
+			break;
+
+		default:
+			ereport(FATAL,
+					(errcode(ERRCODE_PROTOCOL_VIOLATION),
+					 errmsg("invalid frontend message type %d",
+							firstchar)));
+	}
+
+    //if (force_echo) puts("1172-unhandled");
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -1130,15 +1549,19 @@ puts("# 488");
 	/*
 	 * Non-error queries loop here.
 	 */
-puts("# 847: REPL:Begin" __FILE__ );
+puts("# 1548: REPL:Begin" __FILE__ );
+    if (is_node) {
+    	while (repl) {
+            interactive_file();
+            puts("\n");
+        }
+    } else {
+    	while (repl) {
+            interactive_one();
+    	}
+    }
 
-	while (repl)
-	{
-        interactive_one();
-puts("\n");
-	}							/* end of input-reading loop */
-
-    puts("\n\nREPL:End " __FILE__);
+    puts("\n\n# 1563: REPL:End " __FILE__);
 #if !defined(PG_INITDB_MAIN)
     abort();
 #endif
@@ -1147,6 +1570,9 @@ puts("\n");
 
 
 #else
+
+
+extern bool is_node;
 
 extern bool quote_all_identifiers;
 
@@ -1311,18 +1737,23 @@ EM_ASM({
 
 #define PGDB WASM_PREFIX "/base"
 
-EMSCRIPTEN_KEEPALIVE void
+static void
 main_pre() {
 	chdir("/");
-
     if (access("/etc/fstab", F_OK) == 0) {
     	setenv("ENVIRONMENT", "node" , 1);
+        is_node = true;
     } else {
     	setenv("ENVIRONMENT", "web" , 1);
         mkdirp("/data");
         mkdirp("/data/data");
         mkdirp("/data/data/pg");
         mkdirp(WASM_PREFIX);
+        EM_ASM({
+            console.warn("main_pre");
+            window.instance.FS = FS;
+        });
+
     }
 
 
@@ -1354,6 +1785,7 @@ puts("# ============= env dump ==================");
     printf("# %s\n", drefp);
   }
 puts("# =========================================");
+puts("# unicode test : éèà");
 
 	mkdirp(WASM_PREFIX);
 }

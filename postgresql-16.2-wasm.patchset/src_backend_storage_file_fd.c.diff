@@ -1,5 +1,5 @@
 --- postgresql-16.2/src/backend/storage/file/fd.c	2024-02-05 22:41:37.000000000 +0100
-+++ postgresql-16.2-wasm/src/backend/storage/file/fd.c	2024-05-09 12:27:16.697289944 +0200
++++ postgresql-16.2-wasm/src/backend/storage/file/fd.c	2024-05-13 13:40:08.005727715 +0200
 @@ -69,7 +69,7 @@
   *
   *-------------------------------------------------------------------------
@@ -47,3 +47,21 @@
  	if (ret == -1 && errno == EINTR)
  		goto retry;
  #endif
+@@ -2619,7 +2625,7 @@
+ 
+ 	return -1;					/* failure */
+ }
+-
++#if !defined(__EMSCRIPTEN__) && !defined(__wasi__)
+ /*
+  * Routines that want to initiate a pipe stream should use OpenPipeStream
+  * rather than plain popen().  This lets fd.c deal with freeing FDs if
+@@ -2679,7 +2685,7 @@
+ 
+ 	return NULL;
+ }
+-
++#endif
+ /*
+  * Free an AllocateDesc of any type.
+  *

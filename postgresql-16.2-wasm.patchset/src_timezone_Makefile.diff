@@ -1,5 +1,5 @@
 --- postgresql-16.2/src/timezone/Makefile	2024-02-05 22:41:37.000000000 +0100
-+++ postgresql-16.2-wasm/src/timezone/Makefile	2024-05-13 09:23:50.050656969 +0200
++++ postgresql-16.2-wasm/src/timezone/Makefile	2024-05-13 20:52:37.898812346 +0200
 @@ -48,7 +48,7 @@
  # but GNU make versions <= 3.78.1 or perhaps later have a bug
  # that causes a segfault;  GNU make 3.81 or later fixes this.
