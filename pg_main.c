@@ -63,13 +63,6 @@ printf("# 54: progname=%s for %s\n", progname, single_argv[0]);
 
 printf("# 61: dbname=%s\n", dbname);
 
-//	                if (!SelectConfigFiles(userDoption, progname)) proc_exit(1);
-
-//	                checkDataDir();
-//	                ChangeToDataDir();
-
-//	                CreateDataDirLockFile(false);
-
     LocalProcessControlFile(false);
 
     process_shared_preload_libraries();
@@ -1326,20 +1319,36 @@ main_pre() {
         mkdirp(WASM_PREFIX);
     }
 
-    // we cannot run "locale -a" either from web or node. use a fake file
-    // as popen output
-    if (access(WASM_PREFIX "/locale", F_OK) != 0) {
-        FILE *fakeloc = fopen(WASM_PREFIX "/locale", "w");
-        fprintf(fakeloc, "C\nC.UTF-8\nPOSIX\nUTF-8\n");
-        fclose(fakeloc);
-    }
+
 
 	// postgres does not know where to find the server configuration file.
+    // also we store the fake locale file there.
 	// postgres.js:1605 You must specify the --config-file or -D invocation option or set the PGDATA environment variable.
 	// ?? setenv("PGDATABASE", WASM_PREFIX "/db" , 1 );
 	setenv("PGSYSCONFDIR", WASM_PREFIX, 1);
 	setenv("PGCLIENTENCODING", "UTF8", 1);
 
+/*
+ * we cannot run "locale -a" either from web or node. use a fake file
+ * as popen output
+ */
+
+/*
+    const char *prefix = getenv("PGSYSCONFDIR");
+    const char *locale = "/locale";
+    char *localefile = malloc( strlen(prefix) + strlen(locale) + 1 );
+    if (localefile) {
+        if (access(localefile, F_OK) != 0) {
+            FILE *fakeloc = fopen(WASM_PREFIX "/locale", "w");
+            {
+                const char* encoding = getenv("PGCLIENTENCODING");
+                fprintf(fakeloc, "C\nC.%s\nPOSIX\n%s\n", encoding, encoding);
+            }
+            fclose(fakeloc);
+        }
+        free(localefile);
+    }
+*/
 	/* default username */
 	setenv("PGUSER", WASM_USERNAME , 0);
 

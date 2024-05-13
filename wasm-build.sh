@@ -78,10 +78,12 @@ then
 	if echo "$@"|grep distclean
 	then
         make distclean
-		exit 0
 	fi
+    exit 0
 fi
 
+
+# for upstreaming CI, on hold for now. 16.2 is priority
 if echo "$@"|grep -q patchwork
 then
     echo "
@@ -94,13 +96,15 @@ then
     wget -O- https://patch-diff.githubusercontent.com/raw/pmp-p/postgres-patchwork/pull/2.diff | patch -p1
     wget -O- https://patch-diff.githubusercontent.com/raw/pmp-p/postgres-patchwork/pull/5.diff | patch -p1
     wget -O- https://patch-diff.githubusercontent.com/raw/pmp-p/postgres-patchwork/pull/7.diff | patch -p1
-    sudo mkdir /pgdata
-    sudo chmod 777 /pgdata
+    sudo mkdir ${PREFIX}
+    sudo chmod 777 ${PREFIX}
     exit 0
 fi
 
 
 mkdir -p ${PREFIX}
+
+# make sure no non-mvp feature gets in.
 
 cat > ${PREFIX}/config.site <<END
 pgac_cv_sse42_crc32_intrinsics_=no
@@ -111,6 +115,9 @@ ac_cv_search_sem_open=no
 ac_cv_file__dev_urandom=no
 END
 
+
+# workaround no "locale -a" for Node.
+
 cat > ${PREFIX}/locale <<END
 C
 C.UTF-8
@@ -118,7 +125,6 @@ POSIX
 UTF-8
 END
 
-#  --with-wal-blocksize=1 --with-segsize=1 --with-segsize-blocks=0 --with-blocksize=4 \
 
 if ${DEBUG:-true}
 then
@@ -130,6 +136,8 @@ else
 fi
 
 export CDEBUG
+
+#  --with-wal-blocksize=1 --with-segsize=1 --with-segsize-blocks=0 --with-blocksize=4 \
 
 CNF="./configure --prefix=${PREFIX} \
  --disable-spinlocks --disable-atomics \
@@ -184,6 +192,7 @@ END
 	exit 0
 fi
 
+# on hold.
 
 if echo "$@" |grep wasi
 then
@@ -200,14 +209,12 @@ then
 fi
 
 
+
 # ================= build wasm (node) ===========================
 
 if echo "$@" |grep -q emsdk
 then
     shift
-
-
-    # export MVP=true
 
     . /opt/python-wasm-sdk/wasm32-bi-emscripten-shell.sh
 
@@ -394,31 +401,31 @@ export PGTZ=UTC
 SQL=/tmp/initdb-\$\$
 # TODO: --waldir=${PREFIX}/wal
 > /tmp/initdb.txt
-${PREFIX}/initdb --no-clean --wal-segsize=1 -g $LANG $CRED --pgdata=${PGDATA} 2> /tmp/initdb-\$\$.log
 
-grep -v dynamic_shared_memory_type ${PGDATA}/postgresql.conf > /tmp/pg-\$\$.conf
-mv /tmp/pg-\$\$.conf ${PGDATA}/postgresql.conf
+${PREFIX}/initdb --no-clean --wal-segsize=1 -g $LANG $CRED --pgdata=${PGDATA}
 
-# ====================================================================
-# cat /data/git/pg/postgresql.conf > ${PGDATA}/postgresql.conf
-# ====================================================================
+# 2> /tmp/initdb-\$\$.log
+
+mv /tmp/initdb.boot.txt \${SQL}.boot.sql
+mv /tmp/initdb.single.txt \${SQL}.single.sql
+
+
+#grep -v dynamic_shared_memory_type ${PGDATA}/postgresql.conf > /tmp/pg-\$\$.conf
+#mv /tmp/pg-\$\$.conf ${PGDATA}/postgresql.conf
+
 
 #grep -v ^invalid\\ binary /tmp/initdb-\$\$.log \\
 # | csplit - -s -n 1 -f \${SQL}-split /^build\\ indices\$/1
 #
-
 #grep -v ^invalid\\ binary /tmp/initdb.txt \\
 # | csplit - -s -n 1 -f \${SQL}-split /^build\\ indices\$/1
 #
-
 #grep -v ^# \${SQL}-split0 > \${SQL}.boot.sql
 #rm \${SQL}-split0
-
 #grep -v ^# \${SQL}-split1 | grep -v ^warning \\
 #  | grep -v '^/\\*'  | grep -v '^ \\*' | grep -v '^ \\*/'  >> \${SQL}.single.sql
+#
 
-mv /tmp/initdb.boot.txt \${SQL}.boot.sql
-mv /tmp/initdb.single.txt \${SQL}.single.sql
 
 if \${CI:-false}
 then
@@ -512,6 +519,8 @@ then
     if [ -f /data/git/pg/local.sh ]
     then
         . /data/git/pg/local.sh
+    else
+        . $GITHUB_WORKSPACE/link.sh
     fi
 
     echo "========== $CI : $GITHUB_WORKSPACE ======"
