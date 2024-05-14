@@ -194,6 +194,7 @@
 
             if (data!=null) {
                 test_step++
+                console.log("SQL:", data)
                 vm.readline(data+"\n\n")
 /*
                 for (const c of Array.from(data + "\n\n")) {
@@ -215,8 +216,6 @@
                     }
                 }
 */
-
-                console.log("SQL:", data, "=>", test_data)
                 setTimeout(test_drive, 2000);
             } else {
                 console.log("SQL:End")
@@ -231,7 +230,7 @@
 
         function postrun() {
             console.log("postrun")
-            setTimeout(test_drive, 2000)
+            setTimeout(test_drive, 3000)
         }
 
 
