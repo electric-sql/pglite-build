@@ -1,5 +1,7 @@
 #!/bin/bash
 
+export PREFIX=$PGROOT
+
 WEB=/tmp/sdk
 mkdir -p $WEB
 

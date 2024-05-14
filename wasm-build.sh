@@ -3,7 +3,7 @@ reset
 export PREFIX=${PREFIX:-/tmp/pgdata}
 
 # save prefix because wasm sdk may change it to sdk install prefix
-PGROOT=${PREFIX}
+export PGROOT=${PREFIX}
 PGDATA=${PGROOT}/base
 
 PGUSER=postgres
