@@ -814,7 +814,43 @@ interactive_one() {
 	     */
         stream = stdin;
 
+#if 0 // test
+        if ( ((char *)(1))[0] ) {
+            int packetlen = strlen((char *)(1));
+            if (packetlen>2) {
+                inBuf->data = (char*)1;
+                inBuf->len = strlen((char *)(1));
+                fprintf(stderr," # stdin: %s\n", inBuf->data);
+            	firstchar = 'Q';
+                goto incoming;
+            }
+            puts("line noise");
+            ((char *)(1))[0] = 0;
+        }
     	resetStringInfo(inBuf);
+#else
+        #define IO ((char *)(1))
+    	resetStringInfo(inBuf);
+        if ( IO[0] ) {
+            int packetlen = strlen(IO);
+            if (packetlen>2) {
+                for (int i=0; i<packetlen; i++) {
+                    appendStringInfoChar(inBuf, IO[i]);
+                }
+                appendStringInfoChar(inBuf, (char) '\0');
+                fprintf(stderr," # stdin: %s\n", inBuf->data);
+            	firstchar = 'Q';
+                // free kernel buffer
+                IO[0] = 0;
+                goto incoming;
+            } else
+                puts("line noise");
+
+            // always free kernel buffer
+            IO[0] = 0;
+        }
+        #undef IO
+#endif
 
         while (peek_fd(0)>0) {
             c = fnc_getfd(0);
@@ -877,7 +913,7 @@ interactive_one() {
 // =======================================================================
 
     }
-
+incoming:
 	switch (firstchar)
 	{
 		case 'Q':			/* simple query */
@@ -1145,7 +1181,6 @@ interactive_one() {
 							firstchar)));
 	}
 
-    //if (force_echo) puts("1172-unhandled");
 }
 
 
@@ -1757,11 +1792,13 @@ main_pre() {
     if (is_node) {
     	setenv("ENVIRONMENT", "node" , 1);
         EM_ASM({
-            console.warn("prerun(C-node)");
-            var window = { instance : Module };
+            const is_worker = (typeof WorkerGlobalScope !== 'undefined') && self instanceof WorkerGlobalScope;
+            console.warn("prerun(C-node) worker=", is_worker);
+            console.is_worker = is_worker ;
+            var window = { vm : Module };
             window.test_data = [];
             try {
-                window.instance.FS = FS;
+                window.vm.FS = FS;
             } catch (x) {
                 console.warn("Access to FS disallowed");
             }
@@ -1769,13 +1806,48 @@ main_pre() {
     } else {
     	setenv("ENVIRONMENT", "web" , 1);
         EM_ASM({
-            console.warn("prerun(C-web)");
+            const FD_BUFFER_MAX = $0;
+            const is_worker = (typeof WorkerGlobalScope !== 'undefined') && self instanceof WorkerGlobalScope;
+            console.warn("prerun(C-web) worker=", is_worker);
+            console.is_worker = is_worker;
+            if (!is_worker) {
+                console.log("Running in main thread, faking onCustomMessage");
+                vm.postMessage = function custom_postMessage(event) {
+                    switch (event.type) {
+                        case "raw" :  {
+                            stringToUTF8( event.data, shm_rawinput, FD_BUFFER_MAX);
+                            break;
+                        }
+
+                        case "stdin" :  {
+                            stringToUTF8( event.data, 1, FD_BUFFER_MAX);
+                            break;
+                        }
+                        case "rcon" :  {
+                            stringToUTF8( event.data, shm_rcon, FD_BUFFER_MAX);
+                            break;
+                        }
+                        default : console.warn("custom_postMessage?", event);
+                    }
+                };
+            } else {
+                console.log("Main: running in a worker, setting onCustomMessage");
+                function onCustomMessage(event) {
+                    console.log("onCustomMessage:", event);
+                    // PUT SHM HERE
+                    //stringToUTF8( utf8encode(data), shm_rcon, $0);
+                };
+
+                Module['onCustomMessage'] = onCustomMessage;
+            };
+
             try {
-                window.instance.FS = FS;
+                window.vm.FS = FS;
             } catch (x) {
                 console.warn("Access to FS disallowed");
-            }
-        });
+            };
+
+        }, FD_BUFFER_MAX);  /* global mem start / num fd max */
 
     }
 	chdir("/");
