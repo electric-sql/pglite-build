@@ -95,8 +95,8 @@ EMCC_WEB="-sNO_EXIT_RUNTIME=1 -sENVIRONMENT=web -sFORCE_FILESYSTEM=1 --shell-fil
  -o postgres.html $PG_O $PG_L
 
 mv postgres.html index.html
-mv -v postgres.* index.html ${WEB}/
+mv postgres.* index.html $GITHUB_WORKSPACE/vtx.js ${WEB}/
 
-du -hs ${WEB}/index.*
+du -hs ${WEB}/postgres.*
 
 popd

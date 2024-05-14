@@ -772,31 +772,7 @@ interactive_one() {
 	StringInfoData *inBuf;
     FILE *stream ;
 
-    if (force_echo) {
-        if ( loops>60) {
-            puts("alive");
-            loops = 0;
-        }
-    }
-
-	/*
-	 * At top of loop, reset extended-query-message flag, so that any
-	 * errors encountered in "idle" state don't provoke skip.
-	 */
 	doing_extended_query_message = false;
-#if 0
-	/*
-	 * For valgrind reporting purposes, the "current query" begins here.
-	 */
-#ifdef USE_VALGRIND
-	old_valgrind_error_count = VALGRIND_COUNT_ERRORS;
-#endif
-#endif
-
-	/*
-	 * Release storage left over from prior query cycle, and create a new
-	 * query input buffer in the cleared MessageContext.
-	 */
 	MemoryContextSwitchTo(MessageContext);
 	MemoryContextResetAndDeleteChildren(MessageContext);
 
@@ -804,54 +780,32 @@ interactive_one() {
     inBuf = &input_message;
 	DoingCommandRead = true;
 
+/*
 	//firstchar = ReadCommand(&input_message);
 	if (whereToSendOutput == DestRemote)
 		firstchar = SocketBackend(&input_message);
 	else {
+*/
 
-	    /*
-	     * display a prompt and obtain input from the user
-	     */
-        stream = stdin;
+	resetStringInfo(inBuf);
 
-#if 0 // test
-        if ( ((char *)(1))[0] ) {
-            int packetlen = strlen((char *)(1));
-            if (packetlen>2) {
-                inBuf->data = (char*)1;
-                inBuf->len = strlen((char *)(1));
-                fprintf(stderr," # stdin: %s\n", inBuf->data);
-            	firstchar = 'Q';
-                goto incoming;
+    #define IO ((char *)(1))
+    c = IO[0];
+    if (c) {
+        int packetlen = strlen(IO);
+        if (packetlen>2) {
+            for (int i=0; i<packetlen; i++) {
+                appendStringInfoChar(inBuf, IO[i]);
             }
-            puts("line noise");
-            ((char *)(1))[0] = 0;
-        }
-    	resetStringInfo(inBuf);
-#else
-        #define IO ((char *)(1))
-    	resetStringInfo(inBuf);
-        if ( IO[0] ) {
-            int packetlen = strlen(IO);
-            if (packetlen>2) {
-                for (int i=0; i<packetlen; i++) {
-                    appendStringInfoChar(inBuf, IO[i]);
-                }
-                appendStringInfoChar(inBuf, (char) '\0');
-                fprintf(stderr," # stdin: %s\n", inBuf->data);
-            	firstchar = 'Q';
-                // free kernel buffer
-                IO[0] = 0;
-                goto incoming;
-            } else
-                puts("line noise");
 
-            // always free kernel buffer
+        } else {
+            //fprintf(stderr," # noise: [%d]\n", c);
             IO[0] = 0;
+            return;
         }
-        #undef IO
-#endif
-
+        // always free kernel buffer
+        IO[0] = 0;
+/*
         while (peek_fd(0)>0) {
             c = fnc_getfd(0);
             //fprintf(stderr, "813-peek[%c]\n", c);
@@ -863,324 +817,318 @@ interactive_one() {
 
 	        if (c == '\n') {
 		        if (UseSemiNewlineNewline) {
-			        /*
-			         * In -j mode, semicolon followed by two newlines ends the
-			         * command; otherwise treat newline as regular character.
-			         */
 			        if (inBuf->len > 1 &&
 				        inBuf->data[inBuf->len - 1] == '\n' &&
-				        inBuf->data[inBuf->len - 2] == ';')
-			        {
-				        /* might as well drop the second newline */
+				        inBuf->data[inBuf->len - 2] == ';') {
 				        break;
 			        }
 		        } else {
-			        /*
-			         * In plain mode, newline ends the command unless preceded by
-			         * backslash.
-			         */
 			        if ( (inBuf->len > 0) && (inBuf->data[inBuf->len - 1] == '\\') ) {
-				        /* discard backslash from inBuf */
 				        inBuf->data[--inBuf->len] = '\0';
-				        /* discard newline too */
 				        continue;
 			        } else {
-				        /* keep the newline character, but end the command */
 				        appendStringInfoChar(inBuf, '\n');
 				        break;
 			        }
 		        }
 	        }
-
-            /* Not newline, or newline treated as regular character */
             appendStringInfoChar(inBuf, (char) c);
 
-        }
+        };
+*/
+
+incoming:
+/*
+	if (sigsetjmp(local_sigjmp_buf, 1) != 0)
+	{
+        puts("paf-919");
+    }
+	PG_exception_stack = &local_sigjmp_buf;
+*/
 
         if (c == EOF && inBuf->len == 0) {
             fprintf(stderr, "858-EOF !!!\n");
 	        firstchar = EOF;
 
         } else {
-            /* Add '\0' to make it look the same as message case. */
             appendStringInfoChar(inBuf, (char) '\0');
-
             if (force_echo && inBuf->len >2)
                 fprintf(stdout, "pg> %s", inBuf->data);
         	firstchar = 'Q';
-            // process query line
         }
+
 // =======================================================================
 
+ /*   };  */
+
+	    switch (firstchar)
+	    {
+		    case 'Q':			/* simple query */
+			    {
+				    const char *query_string;
+
+				    /* Set statement_timestamp() */
+				    SetCurrentStatementStartTimestamp();
+
+				    query_string = pq_getmsgstring(&input_message);
+				    pq_getmsgend(&input_message);
+
+				    if (am_walsender)
+				    {
+					    if (!exec_replication_command(query_string))
+						    exec_simple_query(query_string);
+				    }
+				    else
+					    exec_simple_query(query_string);
+
+				    send_ready_for_query = true;
+			    }
+			    break;
+
+		    case 'P':			/* parse */
+			    {
+				    const char *stmt_name;
+				    const char *query_string;
+				    int			numParams;
+				    Oid		   *paramTypes = NULL;
+
+				    forbidden_in_wal_sender(firstchar);
+
+				    /* Set statement_timestamp() */
+				    SetCurrentStatementStartTimestamp();
+
+				    stmt_name = pq_getmsgstring(&input_message);
+				    query_string = pq_getmsgstring(&input_message);
+				    numParams = pq_getmsgint(&input_message, 2);
+				    if (numParams > 0)
+				    {
+					    paramTypes = palloc_array(Oid, numParams);
+					    for (int i = 0; i < numParams; i++)
+						    paramTypes[i] = pq_getmsgint(&input_message, 4);
+				    }
+				    pq_getmsgend(&input_message);
+
+				    exec_parse_message(query_string, stmt_name,
+								       paramTypes, numParams);
+
+				    //valgrind_report_error_query(query_string);
+			    }
+			    break;
+
+		    case 'B':			/* bind */
+			    forbidden_in_wal_sender(firstchar);
+
+			    /* Set statement_timestamp() */
+			    SetCurrentStatementStartTimestamp();
+
+			    /*
+			     * this message is complex enough that it seems best to put
+			     * the field extraction out-of-line
+			     */
+			    exec_bind_message(&input_message);
+
+			    /* exec_bind_message does valgrind_report_error_query */
+			    break;
+
+		    case 'E':			/* execute */
+			    {
+				    const char *portal_name;
+				    int			max_rows;
+
+				    forbidden_in_wal_sender(firstchar);
+
+				    /* Set statement_timestamp() */
+				    SetCurrentStatementStartTimestamp();
+
+				    portal_name = pq_getmsgstring(&input_message);
+				    max_rows = pq_getmsgint(&input_message, 4);
+				    pq_getmsgend(&input_message);
+
+				    exec_execute_message(portal_name, max_rows);
+
+				    /* exec_execute_message does valgrind_report_error_query */
+			    }
+			    break;
+
+		    case 'F':			/* fastpath function call */
+			    forbidden_in_wal_sender(firstchar);
+
+			    /* Set statement_timestamp() */
+			    SetCurrentStatementStartTimestamp();
+
+			    /* Report query to various monitoring facilities. */
+			    pgstat_report_activity(STATE_FASTPATH, NULL);
+			    set_ps_display("<FASTPATH>");
+
+			    /* start an xact for this function invocation */
+			    start_xact_command();
+
+			    /*
+			     * Note: we may at this point be inside an aborted
+			     * transaction.  We can't throw error for that until we've
+			     * finished reading the function-call message, so
+			     * HandleFunctionRequest() must check for it after doing so.
+			     * Be careful not to do anything that assumes we're inside a
+			     * valid transaction here.
+			     */
+
+			    /* switch back to message context */
+			    MemoryContextSwitchTo(MessageContext);
+
+			    HandleFunctionRequest(&input_message);
+
+			    /* commit the function-invocation transaction */
+			    finish_xact_command();
+
+		        // valgrind_report_error_query("fastpath function call");
+
+			    send_ready_for_query = true;
+			    break;
+
+		    case 'C':			/* close */
+			    {
+				    int			close_type;
+				    const char *close_target;
+
+				    forbidden_in_wal_sender(firstchar);
+
+				    close_type = pq_getmsgbyte(&input_message);
+				    close_target = pq_getmsgstring(&input_message);
+				    pq_getmsgend(&input_message);
+
+				    switch (close_type)
+				    {
+					    case 'S':
+						    if (close_target[0] != '\0')
+							    DropPreparedStatement(close_target, false);
+						    else
+						    {
+							    /* special-case the unnamed statement */
+							    drop_unnamed_stmt();
+						    }
+						    break;
+					    case 'P':
+						    {
+							    Portal		portal;
+
+							    portal = GetPortalByName(close_target);
+							    if (PortalIsValid(portal))
+								    PortalDrop(portal, false);
+						    }
+						    break;
+					    default:
+						    ereport(ERROR,
+								    (errcode(ERRCODE_PROTOCOL_VIOLATION),
+								     errmsg("invalid CLOSE message subtype %d",
+										    close_type)));
+						    break;
+				    }
+
+				    if (whereToSendOutput == DestRemote)
+					    pq_putemptymessage('3');	/* CloseComplete */
+
+				    //valgrind_report_error_query("CLOSE message");
+			    }
+			    break;
+
+		    case 'D':			/* describe */
+			    {
+				    int			describe_type;
+				    const char *describe_target;
+
+				    forbidden_in_wal_sender(firstchar);
+
+				    /* Set statement_timestamp() (needed for xact) */
+				    SetCurrentStatementStartTimestamp();
+
+				    describe_type = pq_getmsgbyte(&input_message);
+				    describe_target = pq_getmsgstring(&input_message);
+				    pq_getmsgend(&input_message);
+
+				    switch (describe_type)
+				    {
+					    case 'S':
+						    exec_describe_statement_message(describe_target);
+						    break;
+					    case 'P':
+						    exec_describe_portal_message(describe_target);
+						    break;
+					    default:
+						    ereport(ERROR,
+								    (errcode(ERRCODE_PROTOCOL_VIOLATION),
+								     errmsg("invalid DESCRIBE message subtype %d",
+										    describe_type)));
+						    break;
+				    }
+
+				    // valgrind_report_error_query("DESCRIBE message");
+			    }
+			    break;
+
+		    case 'H':			/* flush */
+			    pq_getmsgend(&input_message);
+			    if (whereToSendOutput == DestRemote)
+				    pq_flush();
+			    break;
+
+		    case 'S':			/* sync */
+			    pq_getmsgend(&input_message);
+			    finish_xact_command();
+			    //valgrind_report_error_query("SYNC message");
+			    send_ready_for_query = true;
+			    break;
+
+			    /*
+			     * 'X' means that the frontend is closing down the socket. EOF
+			     * means unexpected loss of frontend connection. Either way,
+			     * perform normal shutdown.
+			     */
+		    case EOF:
+
+			    /* for the cumulative statistics system */
+			    pgStatSessionEndCause = DISCONNECT_CLIENT_EOF;
+
+			    /* FALLTHROUGH */
+
+		    case 'X':
+
+			    /*
+			     * Reset whereToSendOutput to prevent ereport from attempting
+			     * to send any more messages to client.
+			     */
+			    if (whereToSendOutput == DestRemote)
+				    whereToSendOutput = DestNone;
+
+			    /*
+			     * NOTE: if you are tempted to add more code here, DON'T!
+			     * Whatever you had in mind to do should be set up as an
+			     * on_proc_exit or on_shmem_exit callback, instead. Otherwise
+			     * it will fail to be called during other backend-shutdown
+			     * scenarios.
+			     */
+    // puts("# 697:proc_exit/repl/skip"); //proc_exit(0);
+                repl = false;
+                return;
+
+		    case 'd':			/* copy data */
+		    case 'c':			/* copy done */
+		    case 'f':			/* copy fail */
+
+			    /*
+			     * Accept but ignore these messages, per protocol spec; we
+			     * probably got here because a COPY failed, and the frontend
+			     * is still sending data.
+			     */
+			    break;
+
+		    default:
+			    ereport(FATAL,
+					    (errcode(ERRCODE_PROTOCOL_VIOLATION),
+					     errmsg("invalid frontend message type %d",
+							    firstchar)));
+	    }
     }
-incoming:
-	switch (firstchar)
-	{
-		case 'Q':			/* simple query */
-			{
-				const char *query_string;
-
-				/* Set statement_timestamp() */
-				SetCurrentStatementStartTimestamp();
-
-				query_string = pq_getmsgstring(&input_message);
-				pq_getmsgend(&input_message);
-
-				if (am_walsender)
-				{
-					if (!exec_replication_command(query_string))
-						exec_simple_query(query_string);
-				}
-				else
-					exec_simple_query(query_string);
-
-				send_ready_for_query = true;
-			}
-			break;
-
-		case 'P':			/* parse */
-			{
-				const char *stmt_name;
-				const char *query_string;
-				int			numParams;
-				Oid		   *paramTypes = NULL;
-
-				forbidden_in_wal_sender(firstchar);
-
-				/* Set statement_timestamp() */
-				SetCurrentStatementStartTimestamp();
-
-				stmt_name = pq_getmsgstring(&input_message);
-				query_string = pq_getmsgstring(&input_message);
-				numParams = pq_getmsgint(&input_message, 2);
-				if (numParams > 0)
-				{
-					paramTypes = palloc_array(Oid, numParams);
-					for (int i = 0; i < numParams; i++)
-						paramTypes[i] = pq_getmsgint(&input_message, 4);
-				}
-				pq_getmsgend(&input_message);
-
-				exec_parse_message(query_string, stmt_name,
-								   paramTypes, numParams);
-
-				//valgrind_report_error_query(query_string);
-			}
-			break;
-
-		case 'B':			/* bind */
-			forbidden_in_wal_sender(firstchar);
-
-			/* Set statement_timestamp() */
-			SetCurrentStatementStartTimestamp();
-
-			/*
-			 * this message is complex enough that it seems best to put
-			 * the field extraction out-of-line
-			 */
-			exec_bind_message(&input_message);
-
-			/* exec_bind_message does valgrind_report_error_query */
-			break;
-
-		case 'E':			/* execute */
-			{
-				const char *portal_name;
-				int			max_rows;
-
-				forbidden_in_wal_sender(firstchar);
-
-				/* Set statement_timestamp() */
-				SetCurrentStatementStartTimestamp();
-
-				portal_name = pq_getmsgstring(&input_message);
-				max_rows = pq_getmsgint(&input_message, 4);
-				pq_getmsgend(&input_message);
-
-				exec_execute_message(portal_name, max_rows);
-
-				/* exec_execute_message does valgrind_report_error_query */
-			}
-			break;
-
-		case 'F':			/* fastpath function call */
-			forbidden_in_wal_sender(firstchar);
-
-			/* Set statement_timestamp() */
-			SetCurrentStatementStartTimestamp();
-
-			/* Report query to various monitoring facilities. */
-			pgstat_report_activity(STATE_FASTPATH, NULL);
-			set_ps_display("<FASTPATH>");
-
-			/* start an xact for this function invocation */
-			start_xact_command();
-
-			/*
-			 * Note: we may at this point be inside an aborted
-			 * transaction.  We can't throw error for that until we've
-			 * finished reading the function-call message, so
-			 * HandleFunctionRequest() must check for it after doing so.
-			 * Be careful not to do anything that assumes we're inside a
-			 * valid transaction here.
-			 */
-
-			/* switch back to message context */
-			MemoryContextSwitchTo(MessageContext);
-
-			HandleFunctionRequest(&input_message);
-
-			/* commit the function-invocation transaction */
-			finish_xact_command();
-
-		    // valgrind_report_error_query("fastpath function call");
-
-			send_ready_for_query = true;
-			break;
-
-		case 'C':			/* close */
-			{
-				int			close_type;
-				const char *close_target;
-
-				forbidden_in_wal_sender(firstchar);
-
-				close_type = pq_getmsgbyte(&input_message);
-				close_target = pq_getmsgstring(&input_message);
-				pq_getmsgend(&input_message);
-
-				switch (close_type)
-				{
-					case 'S':
-						if (close_target[0] != '\0')
-							DropPreparedStatement(close_target, false);
-						else
-						{
-							/* special-case the unnamed statement */
-							drop_unnamed_stmt();
-						}
-						break;
-					case 'P':
-						{
-							Portal		portal;
-
-							portal = GetPortalByName(close_target);
-							if (PortalIsValid(portal))
-								PortalDrop(portal, false);
-						}
-						break;
-					default:
-						ereport(ERROR,
-								(errcode(ERRCODE_PROTOCOL_VIOLATION),
-								 errmsg("invalid CLOSE message subtype %d",
-										close_type)));
-						break;
-				}
-
-				if (whereToSendOutput == DestRemote)
-					pq_putemptymessage('3');	/* CloseComplete */
-
-				//valgrind_report_error_query("CLOSE message");
-			}
-			break;
-
-		case 'D':			/* describe */
-			{
-				int			describe_type;
-				const char *describe_target;
-
-				forbidden_in_wal_sender(firstchar);
-
-				/* Set statement_timestamp() (needed for xact) */
-				SetCurrentStatementStartTimestamp();
-
-				describe_type = pq_getmsgbyte(&input_message);
-				describe_target = pq_getmsgstring(&input_message);
-				pq_getmsgend(&input_message);
-
-				switch (describe_type)
-				{
-					case 'S':
-						exec_describe_statement_message(describe_target);
-						break;
-					case 'P':
-						exec_describe_portal_message(describe_target);
-						break;
-					default:
-						ereport(ERROR,
-								(errcode(ERRCODE_PROTOCOL_VIOLATION),
-								 errmsg("invalid DESCRIBE message subtype %d",
-										describe_type)));
-						break;
-				}
-
-				// valgrind_report_error_query("DESCRIBE message");
-			}
-			break;
-
-		case 'H':			/* flush */
-			pq_getmsgend(&input_message);
-			if (whereToSendOutput == DestRemote)
-				pq_flush();
-			break;
-
-		case 'S':			/* sync */
-			pq_getmsgend(&input_message);
-			finish_xact_command();
-			//valgrind_report_error_query("SYNC message");
-			send_ready_for_query = true;
-			break;
-
-			/*
-			 * 'X' means that the frontend is closing down the socket. EOF
-			 * means unexpected loss of frontend connection. Either way,
-			 * perform normal shutdown.
-			 */
-		case EOF:
-
-			/* for the cumulative statistics system */
-			pgStatSessionEndCause = DISCONNECT_CLIENT_EOF;
-
-			/* FALLTHROUGH */
-
-		case 'X':
-
-			/*
-			 * Reset whereToSendOutput to prevent ereport from attempting
-			 * to send any more messages to client.
-			 */
-			if (whereToSendOutput == DestRemote)
-				whereToSendOutput = DestNone;
-
-			/*
-			 * NOTE: if you are tempted to add more code here, DON'T!
-			 * Whatever you had in mind to do should be set up as an
-			 * on_proc_exit or on_shmem_exit callback, instead. Otherwise
-			 * it will fail to be called during other backend-shutdown
-			 * scenarios.
-			 */
-// puts("# 697:proc_exit/repl/skip"); //proc_exit(0);
-            repl = false;
-            return;
-
-		case 'd':			/* copy data */
-		case 'c':			/* copy done */
-		case 'f':			/* copy fail */
-
-			/*
-			 * Accept but ignore these messages, per protocol spec; we
-			 * probably got here because a COPY failed, and the frontend
-			 * is still sending data.
-			 */
-			break;
-
-		default:
-			ereport(FATAL,
-					(errcode(ERRCODE_PROTOCOL_VIOLATION),
-					 errmsg("invalid frontend message type %d",
-							firstchar)));
-	}
-
+    #undef IO
 }
 
 
@@ -1462,128 +1410,48 @@ puts("# 488");
 	 * were inside a transaction.
 	 */
 
+exception_handler:
+
 #if 1
 #if 1
 	if (sigsetjmp(local_sigjmp_buf, 1) != 0)
 #endif
 	{
-		/*
-		 * NOTE: if you are tempted to add more code in this if-block,
-		 * consider the high probability that it should be in
-		 * AbortTransaction() instead.  The only stuff done directly here
-		 * should be stuff that is guaranteed to apply *only* for outer-level
-		 * error recovery, such as adjusting the FE/BE protocol status.
-		 */
-
-		/* Since not using PG_TRY, must reset error stack by hand */
+        puts("paf-1472");
 		error_context_stack = NULL;
-
-		/* Prevent interrupts while cleaning up */
 		HOLD_INTERRUPTS();
-
-		/*
-		 * Forget any pending QueryCancel request, since we're returning to
-		 * the idle loop anyway, and cancel any active timeout requests.  (In
-		 * future we might want to allow some timeout requests to survive, but
-		 * at minimum it'd be necessary to do reschedule_timeouts(), in case
-		 * we got here because of a query cancel interrupting the SIGALRM
-		 * interrupt handler.)	Note in particular that we must clear the
-		 * statement and lock timeout indicators, to prevent any future plain
-		 * query cancels from being misreported as timeouts in case we're
-		 * forgetting a timeout cancel.
-		 */
 		disable_all_timeouts(false);	/* do first to avoid race condition */
 		QueryCancelPending = false;
 		idle_in_transaction_timeout_enabled = false;
 		idle_session_timeout_enabled = false;
-
-		/* Not reading from the client anymore. */
 		DoingCommandRead = false;
-
-		/* Make sure libpq is in a good state */
 		pq_comm_reset();
-
-		/* Report the error to the client and/or server log */
 		EmitErrorReport();
-
-		/*
-		 * If Valgrind noticed something during the erroneous query, print the
-		 * query string, assuming we have one.
-		 */
 		valgrind_report_error_query(debug_query_string);
-
-		/*
-		 * Make sure debug_query_string gets reset before we possibly clobber
-		 * the storage it points at.
-		 */
 		debug_query_string = NULL;
-
-		/*
-		 * Abort the current transaction in order to recover.
-		 */
 		AbortCurrentTransaction();
-
 		if (am_walsender)
 			WalSndErrorCleanup();
-
 		PortalErrorCleanup();
-
-		/*
-		 * We can't release replication slots inside AbortTransaction() as we
-		 * need to be able to start and abort transactions while having a slot
-		 * acquired. But we never need to hold them across top level errors,
-		 * so releasing here is fine. There also is a before_shmem_exit()
-		 * callback ensuring correct cleanup on FATAL errors.
-		 */
 		if (MyReplicationSlot != NULL)
 			ReplicationSlotRelease();
-
-		/* We also want to cleanup temporary slots on error. */
 		ReplicationSlotCleanup();
-
 		jit_reset_after_error();
-
-		/*
-		 * Now return to normal top-level context and clear ErrorContext for
-		 * next time.
-		 */
 		MemoryContextSwitchTo(TopMemoryContext);
 		FlushErrorState();
-
-		/*
-		 * If we were handling an extended-query-protocol message, initiate
-		 * skip till next Sync.  This also causes us not to issue
-		 * ReadyForQuery (until we get Sync).
-		 */
 		if (doing_extended_query_message)
 			ignore_till_sync = true;
-
-		/* We don't have a transaction command open anymore */
 		xact_started = false;
-
-		/*
-		 * If an error occurred while we were reading a message from the
-		 * client, we have potentially lost track of where the previous
-		 * message ends and the next one begins.  Even though we have
-		 * otherwise recovered from the error, we cannot safely read any more
-		 * messages from the client, so there isn't much we can do with the
-		 * connection anymore.
-		 */
-		if (pq_is_reading_msg())
+		if (pq_is_reading_msg()) {
 			ereport(FATAL,
 					(errcode(ERRCODE_PROTOCOL_VIOLATION),
 					 errmsg("terminating connection because protocol synchronization was lost")));
-
-		/* Now we can allow interrupts again */
+        }
 		RESUME_INTERRUPTS();
 	}
-
-	/* We can now handle ereport(ERROR) */
 	PG_exception_stack = &local_sigjmp_buf;
-
 	if (!ignore_till_sync)
 		send_ready_for_query = true;	/* initially, or after error */
-
 #endif
 
 	/*
