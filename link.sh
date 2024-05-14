@@ -92,9 +92,10 @@ EMCC_WEB="-sNO_EXIT_RUNTIME=1 -sENVIRONMENT=web -sFORCE_FILESYSTEM=1 --shell-fil
  --preload-file ${PREFIX}/password@${PREFIX}/password \
  --preload-file ${PREFIX}/bin/postgres@${PREFIX}/bin/postgres \
  --preload-file ${PREFIX}/bin/initdb@${PREFIX}/bin/initdb \
- -o index.html $PG_O $PG_L
+ -o postgres.html $PG_O $PG_L
 
-mv -v index.* ${WEB}/
+mv postgres.html index.html
+mv -v postgres.* index.html ${WEB}/
 
 du -hs ${WEB}/index.*
 
