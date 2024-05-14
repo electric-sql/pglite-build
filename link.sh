@@ -14,14 +14,8 @@ file ${WEB}/libpgc.so
 
 pushd src
 
-    if $CI
-    then
-        PATCH="-DPATCH_MAIN=/home/runner/work/pglite-build/pglite-build/pg_main.c $PATCH"
-        PATCH="-DPATCH_PLUGIN=/home/runner/work/pglite-build/pglite-build/pg_plugin.h  $PATCH"
-    else
-        PATCH="-DPATCH_MAIN=/data/git/pg/pg_main.c $PATCH"
-        PATCH="-DPATCH_PLUGIN=/data/git/pg/pg_plugin.h  $PATCH"
-    fi
+    PATCH="-DPATCH_MAIN=$GITHUB_WORKSPACE/pg_main.c $PATCH"
+    PATCH="-DPATCH_PLUGIN=$GITHUB_WORKSPACE/pg_plugin.h  $PATCH"
 
     emcc -sFORCE_FILESYSTEM -DPG_INITDB_MAIN=1 -DPREFIX=${PREFIX} -Iinclude -Iinterfaces/libpq -c -o ../pg_initdb.o ./bin/initdb/initdb.c
 
@@ -31,7 +25,7 @@ pushd src
     emcc -DPG_LINK_MAIN=1 -DPREFIX=${PREFIX} $PATCH \
      -Iinclude -Iinterfaces/libpq -c -o ./backend/tcop/postgres.o ./backend/tcop/postgres.c
 
-    EMCC_CFLAGS="-DPREFIX=${PREFIX} -DPG_INITDB_MAIN=1 -DPATCH_PLUGIN=/data/git/pg/pg_plugin.h -DPATCH_MAIN=/data/git/pg/pg_main.c" emmake make backend/main/main.o backend/utils/init/postinit.o
+    EMCC_CFLAGS="-DPREFIX=${PREFIX} -DPG_INITDB_MAIN=1 -DPATCH_PLUGIN=$GITHUB_WORKSPACE/pg_plugin.h -DPATCH_MAIN=$GITHUB_WORKSPACE/pg_main.c" emmake make backend/main/main.o backend/utils/init/postinit.o
 popd
 
 
