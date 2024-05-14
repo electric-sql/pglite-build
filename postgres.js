@@ -163,7 +163,7 @@ if (Module['ENVIRONMENT']) {
 
 // --pre-jses are emitted after the Module integration code, so that they can
 // refer to Module (if they choose; they can also define Module)
-// include: /tmp/tmpseq48rmd.js
+// include: /tmp/tmpa6095jd6.js
 
   if (!Module.expectedDataFileDownloads) {
     Module.expectedDataFileDownloads = 0;
@@ -340,21 +340,21 @@ Module['FS_createPath']("/tmp/pglite/share/postgresql", "tsearch_data", true, tr
 
   })();
 
-// end include: /tmp/tmpseq48rmd.js
-// include: /tmp/tmptlxiud8e.js
+// end include: /tmp/tmpa6095jd6.js
+// include: /tmp/tmpdq0vhweg.js
 
     // All the pre-js content up to here must remain later on, we need to run
     // it.
     if (Module['$ww'] || (typeof ENVIRONMENT_IS_PTHREAD != 'undefined' && ENVIRONMENT_IS_PTHREAD)) Module['preRun'] = [];
     var necessaryPreJSTasks = Module['preRun'].slice();
-  // end include: /tmp/tmptlxiud8e.js
-// include: /tmp/tmpjnzabmbn.js
+  // end include: /tmp/tmpdq0vhweg.js
+// include: /tmp/tmpxfxhv38x.js
 
     if (!Module['preRun']) throw 'Module.preRun should exist because file support used it; did a pre-js delete it?';
     necessaryPreJSTasks.forEach(function(task) {
       if (Module['preRun'].indexOf(task) < 0) throw 'All preRun tasks that exist before user pre-js code should remain after; did you replace Module or modify Module.preRun?';
     });
-  // end include: /tmp/tmpjnzabmbn.js
+  // end include: /tmp/tmpxfxhv38x.js
 
 
 // Sometimes an existing Module object exists with properties
@@ -2534,7 +2534,7 @@ is_web_env.sig = 'i';
   
   /** @type {WebAssembly.Table} */
   var wasmTable = new WebAssembly.Table({
-    'initial': 6200,
+    'initial': 6205,
     'element': 'anyfunc'
   });
   ;
@@ -31470,7 +31470,7 @@ var _pg_file_create_mode = Module['_pg_file_create_mode'] = 5930988;
 var _pg_dir_create_mode = Module['_pg_dir_create_mode'] = 5930984;
 var _forkNames = Module['_forkNames'] = 5931024;
 var _pg_mode_mask = Module['_pg_mode_mask'] = 5930992;
-var _day_tab = Module['_day_tab'] = 4833680;
+var _day_tab = Module['_day_tab'] = 4833728;
 var _days = Module['_days'] = 5894224;
 var _months = Module['_months'] = 5894160;
 var _pg_number_of_ones = Module['_pg_number_of_ones'] = 5752144;
