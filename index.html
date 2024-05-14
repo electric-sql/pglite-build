@@ -189,6 +189,8 @@
 
             if (data!=null) {
                 test_step++
+                vm.readline(data+"\n\n")
+/*
                 for (const c of Array.from(data + "\n\n")) {
                     const charcode = c.codePointAt(0)
                     if (charcode < 0x80) {
@@ -207,6 +209,7 @@
                         }
                     }
                 }
+*/
 
                 console.log("SQL:", data, "=>", test_data)
                 setTimeout(test_drive, 2000);
