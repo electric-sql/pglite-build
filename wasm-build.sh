@@ -63,6 +63,7 @@ LANG="-E UTF8 --locale=C.UTF-8 --locale-provider=libc"
 echo "
 
         PREFIX=$PREFIX
+        PGROOT=$PGROOT
         PGDATA=$PGDATA
 
 TODO:

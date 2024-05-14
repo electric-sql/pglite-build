@@ -318,27 +318,28 @@ puts("# 100");
 
     fclose(single_mode_feed);
 
-    puts("# 325: REPL(initdb-single):End " __FILE__ );
-    puts("# 326: REPL(single after initdb):Begin(NORETURN)");
-
+    puts("# 321: REPL(initdb-single):End " __FILE__ );
 
     /* now use stdin as source */
     repl = true;
     single_mode_feed = NULL;
 
     force_echo = true;
-#if 1
-    emscripten_set_main_loop( (em_callback_func)interactive_one, 0, 1);
-#else
-    while (repl) { interactive_one(); }
-    puts("# 333: REPL:End Raising a 'RuntimeError Exception' to halt program NOW");
-    {
-        void (*npe)() = NULL;
-        npe();
+    if (!is_node) {
+        puts("# now webloop(raf)");
+        emscripten_set_main_loop( (em_callback_func)interactive_one, 0, 1);
+    } else {
+        puts("# 331: REPL(single after initdb):Begin(NORETURN)");
+        while (repl) { interactive_file(); }
+        puts("# 333: REPL:End Raising a 'RuntimeError Exception' to halt program NOW");
+        {
+            void (*npe)() = NULL;
+            npe();
+        }
     }
-#endif
-}
+    // unreachable.
 
+}
 
 
 
@@ -1737,12 +1738,22 @@ EM_ASM({
 
 #define PGDB WASM_PREFIX "/base"
 
+EM_JS(int, is_node_env, (), {
+    try {
+        if (window) return 0;
+    } catch(x) {return 1}
+});
+
+
 static void
 main_pre() {
+
+    is_node = is_node_env();
+
 	chdir("/");
     if (access("/etc/fstab", F_OK) == 0) {
     	setenv("ENVIRONMENT", "node" , 1);
-        is_node = true;
+
     } else {
     	setenv("ENVIRONMENT", "web" , 1);
         mkdirp("/data");
@@ -1751,7 +1762,14 @@ main_pre() {
         mkdirp(WASM_PREFIX);
         EM_ASM({
             console.warn("main_pre");
-            window.instance.FS = FS;
+            try {
+                window.instance.FS = FS;
+            } catch (x) {
+                console.warn("Running on Node");
+                var window = { instance : Module };
+                window.test_data = [];
+                window.instance.FS = FS;
+            }
         });
 
     }

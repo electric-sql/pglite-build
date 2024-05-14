@@ -78,13 +78,14 @@ else
     PG_L="$PG_L -L../../src/interfaces/ecpg/ecpglib ../../src/interfaces/ecpg/ecpglib/libecpg.so"
 fi
 
-
+EMCC_WEB="-sNO_EXIT_RUNTIME=1 -sENVIRONMENT=web -sFORCE_FILESYSTEM=1 --shell-file $GITHUB_WORKSPACE/repl.html"
 
 /opt/python-wasm-sdk/emsdk/upstream/emscripten/emcc -sLZ4=1 -sFORCE_FILESYSTEM -fPIC $CDEBUG -sMAIN_MODULE=1 \
  -D__PYDK__=1 -DPREFIX=${PREFIX} \
- --shell-file $GITHUB_WORKSPACE/repl.html \
+ $EMCC_WEB \
  -sTOTAL_MEMORY=1GB -sSTACK_SIZE=4MB -sALLOW_TABLE_GROWTH -sALLOW_MEMORY_GROWTH -sGLOBAL_BASE=100MB \
--sMODULARIZE=1 -sEXPORT_ES6=1 -sEXPORT_NAME=Module -sEXPORTED_RUNTIME_METHODS=FS \
+ -sMODULARIZE=1 -sEXPORT_ES6=1 -sEXPORT_NAME=Module -sEXPORTED_RUNTIME_METHODS=FS \
+ -sEXPORTED_FUNCTIONS=_main \
  --use-preload-plugins \
  --preload-file ${PREFIX}/share/postgresql@${PREFIX}/share/postgresql \
  --preload-file ${PREFIX}/lib@${PREFIX}/lib \
