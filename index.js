@@ -163,7 +163,7 @@ if (Module['ENVIRONMENT']) {
 
 // --pre-jses are emitted after the Module integration code, so that they can
 // refer to Module (if they choose; they can also define Module)
-// include: /tmp/tmp_68ddfet.js
+// include: /tmp/tmpah1dornf.js
 
   if (!Module.expectedDataFileDownloads) {
     Module.expectedDataFileDownloads = 0;
@@ -340,21 +340,21 @@ Module['FS_createPath']("/tmp/pglite/share/postgresql", "tsearch_data", true, tr
 
   })();
 
-// end include: /tmp/tmp_68ddfet.js
-// include: /tmp/tmpoa8_x3yj.js
+// end include: /tmp/tmpah1dornf.js
+// include: /tmp/tmp8la7d048.js
 
     // All the pre-js content up to here must remain later on, we need to run
     // it.
     if (Module['$ww'] || (typeof ENVIRONMENT_IS_PTHREAD != 'undefined' && ENVIRONMENT_IS_PTHREAD)) Module['preRun'] = [];
     var necessaryPreJSTasks = Module['preRun'].slice();
-  // end include: /tmp/tmpoa8_x3yj.js
-// include: /tmp/tmpkgg4clx2.js
+  // end include: /tmp/tmp8la7d048.js
+// include: /tmp/tmpfmbnyn77.js
 
     if (!Module['preRun']) throw 'Module.preRun should exist because file support used it; did a pre-js delete it?';
     necessaryPreJSTasks.forEach(function(task) {
       if (Module['preRun'].indexOf(task) < 0) throw 'All preRun tasks that exist before user pre-js code should remain after; did you replace Module or modify Module.preRun?';
     });
-  // end include: /tmp/tmpkgg4clx2.js
+  // end include: /tmp/tmpfmbnyn77.js
 
 
 // Sometimes an existing Module object exists with properties
@@ -1212,10 +1212,10 @@ function dbg(...args) {
 // === Body ===
 
 var ASM_CONSTS = {
-  6311360: () => { console.warn("prerun(C-node)"); var window = { instance : Module }; window.test_data = []; try { window.instance.FS = FS; } catch (x) { console.warn("Access to FS disallowed"); } },  
- 6311543: () => { console.warn("prerun(C-web)"); try { window.instance.FS = FS; } catch (x) { console.warn("Access to FS disallowed"); } },  
- 6311666: ($0) => { if (!$0) { AL.alcErr = 0xA004 ; return 1; } },  
- 6311714: ($0) => { if (!AL.currentCtx) { err("alGetProcAddress() called without a valid context"); return 1; } if (!$0) { AL.currentCtx.err = 0xA003 ; return 1; } }
+  6311360: () => { const is_worker = (typeof WorkerGlobalScope !== 'undefined') && self instanceof WorkerGlobalScope; console.warn("prerun(C-node) worker=", is_worker); console.is_worker = is_worker ; var window = { vm : Module }; window.test_data = []; try { window.vm.FS = FS; } catch (x) { console.warn("Access to FS disallowed"); } },  
+ 6311681: ($0) => { const FD_BUFFER_MAX = $0; const is_worker = (typeof WorkerGlobalScope !== 'undefined') && self instanceof WorkerGlobalScope; console.warn("prerun(C-web) worker=", is_worker); console.is_worker = is_worker; if (!is_worker) { console.log("Running in main thread, faking onCustomMessage"); vm.postMessage = function custom_postMessage(event) { switch (event.type) { case "raw" : { stringToUTF8( event.data, shm_rawinput, FD_BUFFER_MAX); break; } case "stdin" : { stringToUTF8( event.data, 1, FD_BUFFER_MAX); break; } case "rcon" : { stringToUTF8( event.data, shm_rcon, FD_BUFFER_MAX); break; } default : console.warn("custom_postMessage?", event); } }; } else { console.log("Main: running in a worker, setting onCustomMessage"); function onCustomMessage(event) { console.log("onCustomMessage:", event); }; Module['onCustomMessage'] = onCustomMessage; }; try { window.vm.FS = FS; } catch (x) { console.warn("Access to FS disallowed"); }; },  
+ 6312619: ($0) => { if (!$0) { AL.alcErr = 0xA004 ; return 1; } },  
+ 6312667: ($0) => { if (!AL.currentCtx) { err("alGetProcAddress() called without a valid context"); return 1; } if (!$0) { AL.currentCtx.err = 0xA003 ; return 1; } }
 };
 function peek_fd(fd) { return test_data.length; }
 peek_fd.sig = 'ii';
@@ -2379,7 +2379,7 @@ is_web_env.sig = 'i';
   
   
   
-  var ___heap_base = 11745632;
+  var ___heap_base = 11746592;
   
   var zeroMemory = (address, size) => {
       HEAPU8.fill(0, address, address + size);
@@ -3496,11 +3496,11 @@ is_web_env.sig = 'i';
 
   var ___memory_base = new WebAssembly.Global({'value': 'i32', 'mutable': false}, 4194304);
 
-  var ___stack_high = 11745632;
+  var ___stack_high = 11746592;
 
-  var ___stack_low = 6502752;
+  var ___stack_low = 6503712;
 
-  var ___stack_pointer = new WebAssembly.Global({'value': 'i32', 'mutable': true}, 11745632);
+  var ___stack_pointer = new WebAssembly.Global({'value': 'i32', 'mutable': true}, 11746592);
 
   var PATH = {
   isAbs:(path) => path.charAt(0) === '/',
@@ -31466,25 +31466,25 @@ var ___cxa_can_catch = createExportWrapper('__cxa_can_catch', 3);
 var ___cxa_is_pointer_type = createExportWrapper('__cxa_is_pointer_type', 1);
 var _stderr = Module['_stderr'] = 5933856;
 var _stdout = Module['_stdout'] = 5934160;
-var ___THREW__ = Module['___THREW__'] = 6096312;
-var ___threwValue = Module['___threwValue'] = 6096316;
-var _progname = Module['_progname'] = 5940404;
-var _single_mode_feed = Module['_single_mode_feed'] = 5940420;
+var ___THREW__ = Module['___THREW__'] = 6097272;
+var ___threwValue = Module['___threwValue'] = 6097276;
+var _progname = Module['_progname'] = 5941364;
+var _single_mode_feed = Module['_single_mode_feed'] = 5941380;
 var _stdin = Module['_stdin'] = 5934008;
-var _quote_all_identifiers = Module['_quote_all_identifiers'] = 5940409;
+var _quote_all_identifiers = Module['_quote_all_identifiers'] = 5941369;
 var _pg_file_create_mode = Module['_pg_file_create_mode'] = 5930988;
 var _pg_dir_create_mode = Module['_pg_dir_create_mode'] = 5930984;
 var _forkNames = Module['_forkNames'] = 5931024;
 var _pg_mode_mask = Module['_pg_mode_mask'] = 5930992;
-var _day_tab = Module['_day_tab'] = 4833696;
+var _day_tab = Module['_day_tab'] = 4833712;
 var _days = Module['_days'] = 5894224;
 var _months = Module['_months'] = 5894160;
 var _pg_number_of_ones = Module['_pg_number_of_ones'] = 5752144;
-var _nullSemAction = Module['_nullSemAction'] = 6000716;
+var _nullSemAction = Module['_nullSemAction'] = 6001676;
 var _pg_enc2name_tbl = Module['_pg_enc2name_tbl'] = 5930000;
 var _pg_wchar_table = Module['_pg_wchar_table'] = 5931040;
-var _IDB_STAGE = Module['_IDB_STAGE'] = 6000712;
-var _IDB_PIPE_FP = Module['_IDB_PIPE_FP'] = 6000708;
+var _IDB_STAGE = Module['_IDB_STAGE'] = 6001672;
+var _IDB_PIPE_FP = Module['_IDB_PIPE_FP'] = 6001668;
 function invoke_i(index) {
   var sp = stackSave();
   try {
@@ -32365,7 +32365,7 @@ function stackCheckInit() {
   // This is normally called automatically during __wasm_call_ctors but need to
   // get these values before even running any of the ctors so we call it redundantly
   // here.
-  _emscripten_stack_set_limits(11745632 , 6502752);
+  _emscripten_stack_set_limits(11746592 , 6503712);
   // TODO(sbc): Move writeStackCookie to native to to avoid this.
   writeStackCookie();
 }
