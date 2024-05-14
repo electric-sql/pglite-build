@@ -326,7 +326,7 @@ puts("# 100");
 
     force_echo = true;
     if (!is_node) {
-        puts("# now webloop(raf)");
+        fprintf(stdout,"# now in webloop(RAF)\npg> %c\n", 4);
         emscripten_set_main_loop( (em_callback_func)interactive_one, 0, 1);
     } else {
         puts("# 331: REPL(single after initdb):Begin(NORETURN)");
@@ -772,13 +772,7 @@ interactive_one() {
 	StringInfoData *inBuf;
     FILE *stream ;
 
-	doing_extended_query_message = false;
-	MemoryContextSwitchTo(MessageContext);
-	MemoryContextResetAndDeleteChildren(MessageContext);
 
-	initStringInfo(&input_message);
-    inBuf = &input_message;
-	DoingCommandRead = true;
 
 /*
 	//firstchar = ReadCommand(&input_message);
@@ -787,79 +781,59 @@ interactive_one() {
 	else {
 */
 
-	resetStringInfo(inBuf);
-
     #define IO ((char *)(1))
     c = IO[0];
-    if (c) {
-        int packetlen = strlen(IO);
-        if (packetlen>2) {
-            for (int i=0; i<packetlen; i++) {
-                appendStringInfoChar(inBuf, IO[i]);
-            }
 
-        } else {
-            //fprintf(stderr," # noise: [%d]\n", c);
-            IO[0] = 0;
-            return;
-        }
-        // always free kernel buffer
+// TODO: use a msg queue length
+    if (!c)
+        return;
+
+    int packetlen = strlen(IO);
+    if (packetlen<2) {
+        fprintf(stdout,"pg> %c\n", 4);
+        // always free kernel buffer !!!
         IO[0] = 0;
-/*
-        while (peek_fd(0)>0) {
-            c = fnc_getfd(0);
-            //fprintf(stderr, "813-peek[%c]\n", c);
+        return;
+    }
 
-            // this is an error if buffer is empty
-            if (c == EOF) {
-                break;
-            }
+    doing_extended_query_message = false;
+    MemoryContextSwitchTo(MessageContext);
+    MemoryContextResetAndDeleteChildren(MessageContext);
 
-	        if (c == '\n') {
-		        if (UseSemiNewlineNewline) {
-			        if (inBuf->len > 1 &&
-				        inBuf->data[inBuf->len - 1] == '\n' &&
-				        inBuf->data[inBuf->len - 2] == ';') {
-				        break;
-			        }
-		        } else {
-			        if ( (inBuf->len > 0) && (inBuf->data[inBuf->len - 1] == '\\') ) {
-				        inBuf->data[--inBuf->len] = '\0';
-				        continue;
-			        } else {
-				        appendStringInfoChar(inBuf, '\n');
-				        break;
-			        }
-		        }
-	        }
-            appendStringInfoChar(inBuf, (char) c);
+    initStringInfo(&input_message);
+    inBuf = &input_message;
+    DoingCommandRead = true;
 
-        };
-*/
+// buffer query TODO: direct access ?
+	resetStringInfo(inBuf);
+
+    for (int i=0; i<packetlen; i++) {
+        appendStringInfoChar(inBuf, IO[i]);
+    }
+
+    // always free kernel buffer !!!
+    IO[0] = 0;
 
 incoming:
-/*
+
 	if (sigsetjmp(local_sigjmp_buf, 1) != 0)
 	{
-        puts("paf-919");
+        puts("TODO: exception handling sync/async");
     }
+
 	PG_exception_stack = &local_sigjmp_buf;
-*/
 
-        if (c == EOF && inBuf->len == 0) {
-            fprintf(stderr, "858-EOF !!!\n");
-	        firstchar = EOF;
+    if (c == EOF && inBuf->len == 0) {
+        fprintf(stderr, "858-EOF !!!\n");
+        firstchar = EOF;
 
-        } else {
-            appendStringInfoChar(inBuf, (char) '\0');
-            if (force_echo && inBuf->len >2)
-                fprintf(stdout, "pg> %s", inBuf->data);
-        	firstchar = 'Q';
-        }
+    } else {
+        appendStringInfoChar(inBuf, (char) '\0');
+        if (force_echo && inBuf->len >2)
+            fprintf(stdout, "QUERY: %s", inBuf->data);
+    	firstchar = 'Q';
+    }
 
-// =======================================================================
-
- /*   };  */
 
 	    switch (firstchar)
 	    {
@@ -882,6 +856,7 @@ incoming:
 					    exec_simple_query(query_string);
 
 				    send_ready_for_query = true;
+                    fprintf(stdout,"pg> %c\n", 4);
 			    }
 			    break;
 
@@ -1126,8 +1101,8 @@ incoming:
 					    (errcode(ERRCODE_PROTOCOL_VIOLATION),
 					     errmsg("invalid frontend message type %d",
 							    firstchar)));
-	    }
-    }
+	    } // end switch
+
     #undef IO
 }
 
@@ -1464,6 +1439,7 @@ puts("# 1548: REPL:Begin" __FILE__ );
             puts("\n");
         }
     } else {
+        fprintf(stdout,"pg> %c\n", 4);
     	while (repl) {
             interactive_one();
     	}
