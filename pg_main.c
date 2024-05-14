@@ -331,13 +331,17 @@ puts("# 100");
     } else {
         puts("# 331: REPL(single after initdb):Begin(NORETURN)");
         while (repl) { interactive_file(); }
-        puts("# 333: REPL:End Raising a 'RuntimeError Exception' to halt program NOW");
-        {
-            void (*npe)() = NULL;
-            npe();
-        }
+        exit(0);
     }
+
     // unreachable.
+
+    puts("# 338: REPL:End Raising a 'RuntimeError Exception' to halt program NOW");
+    {
+        void (*npe)() = NULL;
+        npe();
+    }
+
 
 }
 
@@ -419,7 +423,7 @@ interactive_file() {
 	 * display a prompt and obtain input from the user
 	 */
     if (!single_mode_feed) {
-	    printf("pg> ");
+	    printf("pg> %c\n", 4);
     	fflush(stdout);
         stream = stdin;
     } else {
@@ -1738,42 +1742,51 @@ EM_ASM({
 
 #define PGDB WASM_PREFIX "/base"
 
-EM_JS(int, is_node_env, (), {
+EM_JS(int, is_web_env, (), {
     try {
-        if (window) return 0;
-    } catch(x) {return 1}
+        if (window) return 1;
+    } catch(x) {return 0}
 });
 
 
 static void
 main_pre() {
 
-    is_node = is_node_env();
+    is_node = !is_web_env();
 
-	chdir("/");
-    if (access("/etc/fstab", F_OK) == 0) {
+    if (is_node) {
     	setenv("ENVIRONMENT", "node" , 1);
-
-    } else {
-    	setenv("ENVIRONMENT", "web" , 1);
-        mkdirp("/data");
-        mkdirp("/data/data");
-        mkdirp("/data/data/pg");
-        mkdirp(WASM_PREFIX);
         EM_ASM({
-            console.warn("main_pre");
+            console.warn("prerun(C-node)");
+            var window = { instance : Module };
+            window.test_data = [];
             try {
                 window.instance.FS = FS;
             } catch (x) {
-                console.warn("Running on Node");
-                var window = { instance : Module };
-                window.test_data = [];
+                console.warn("Access to FS disallowed");
+            }
+        });
+    } else {
+    	setenv("ENVIRONMENT", "web" , 1);
+        EM_ASM({
+            console.warn("prerun(C-web)");
+            try {
                 window.instance.FS = FS;
+            } catch (x) {
+                console.warn("Access to FS disallowed");
             }
         });
 
     }
-
+	chdir("/");
+    if (access("/etc/fstab", F_OK) == 0) {
+        puts("WARNING: Node with real filesystem access");
+    } else {
+        mkdirp("/data");
+        mkdirp("/data/data");
+        mkdirp("/data/data/pg");
+        mkdirp(WASM_PREFIX);
+    }
 
 
 	// postgres does not know where to find the server configuration file.
