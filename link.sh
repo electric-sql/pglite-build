@@ -2,17 +2,17 @@
 
 export PREFIX=$PGROOT
 
-WEB=/tmp/sdk
-mkdir -p $WEB
+WEBROOT=${WEBROOT:-/tmp/sdk}
+mkdir -p $WEBROOT
 
 
 # client lib ( eg psycopg ) for websocketed pg server
-emcc $CDEBUG -shared -o ${WEB}/libpgc.so \
+emcc $CDEBUG -shared -o ${WEBROOT}/libpgc.so \
      ./src/interfaces/libpq/libpq.a \
      ./src/port/libpgport.a \
      ./src/common/libpgcommon.a
 
-file ${WEB}/libpgc.so
+file ${WEBROOT}/libpgc.so
 
 pushd src
 
@@ -44,11 +44,11 @@ pushd src/backend
 # https://github.com/llvm/llvm-project/issues/50623
 
 
-cp -vf ../../src/interfaces/ecpg/ecpglib/libecpg.so ${WEB}/
+cp -vf ../../src/interfaces/ecpg/ecpglib/libecpg.so ${WEBROOT}/
 
 
 echo " ---------- building web test PREFIX=$PREFIX ------------"
-du -hs ${WEB}/libpg?.*
+du -hs ${WEBROOT}/libpg?.*
 
 PG_O="../../src/fe_utils/string_utils.o ../../src/common/logging.o \
  $(find . -type f -name "*.o" \
@@ -70,7 +70,7 @@ PG_L="$PG_L -L../../src/interfaces/ecpg/ecpglib ../../src/interfaces/ecpg/ecpgli
 # ? -sLZ4=1  -sENVIRONMENT=web
 EMCC_WEB="-sNO_EXIT_RUNTIME=1 -sFORCE_FILESYSTEM=1  --shell-file $GITHUB_WORKSPACE/repl.html"
 
-/opt/python-wasm-sdk/emsdk/upstream/emscripten/emcc  $EMCC_WEB -sFORCE_FILESYSTEM -fPIC $CDEBUG -sMAIN_MODULE=1 \
+emcc $EMCC_WEB -fPIC $CDEBUG -sMAIN_MODULE=1 \
  -D__PYDK__=1 -DPREFIX=${PREFIX} \
  -sTOTAL_MEMORY=1GB -sSTACK_SIZE=4MB -sALLOW_TABLE_GROWTH -sALLOW_MEMORY_GROWTH -sGLOBAL_BASE=100MB \
  -sMODULARIZE=1 -sEXPORT_ES6=1 -sEXPORT_NAME=Module -sEXPORTED_RUNTIME_METHODS=FS \
@@ -83,9 +83,12 @@ EMCC_WEB="-sNO_EXIT_RUNTIME=1 -sFORCE_FILESYSTEM=1  --shell-file $GITHUB_WORKSPA
  --preload-file ${PREFIX}/bin/initdb@${PREFIX}/bin/initdb \
  -o postgres.html $PG_O $PG_L
 
-mv postgres.html index.html
-mv postgres.* index.html $GITHUB_WORKSPACE/vtx.js ${WEB}/
 
-du -hs ${WEB}/postgres.*
+#mv postgres.html index.html
+echo "<html></html>" > index.html
+cp $GITHUB_WORKSPACE/vtx.js ${WEBROOT}/
+mv postgres.* index.html ${WEBROOT}/
+
+du -hs ${WEBROOT}/postgres.*
 
 popd

@@ -1,9 +1,11 @@
 #!/bin/bash
 reset
-export PREFIX=${PREFIX:-/tmp/pgdata}
 
 # save prefix because wasm sdk may change it to sdk install prefix
-export PGROOT=${PREFIX}
+PGROOT=${PGROOT:-$PREFIX}
+export PREFIX=${PGROOT:-/tmp/pgdata}
+export PGROOT=${PGROOT:-$PREFIX}
+
 PGDATA=${PGROOT}/base
 
 PGUSER=postgres
@@ -67,7 +69,9 @@ echo "
         PGDATA=$PGDATA
 
 TODO:
+
     handle symlinks for initdb --waldir=${PREFIX}/wal to $PGDATA/pg_wal
+
 
 
 "
@@ -332,8 +336,8 @@ END
 
     if $CI
     then
-        EMCC_CFLAGS="-DPATCH_MAIN=/home/runner/work/pglite-build/pglite-build/pg_main.c ${EMCC_CFLAGS}"
-        EMCC_CFLAGS="-DPATCH_PLUGIN=/home/runner/work/pglite-build/pglite-build/pg_plugin.h ${EMCC_CFLAGS}"
+        EMCC_CFLAGS="-DPATCH_MAIN=${GITHUB_WORKSPACE}/pg_main.c ${EMCC_CFLAGS}"
+        EMCC_CFLAGS="-DPATCH_PLUGIN=${GITHUB_WORKSPACE}/pg_plugin.h ${EMCC_CFLAGS}"
     else
         EMCC_CFLAGS="-DPATCH_MAIN=/data/git/pg/pg_main.c ${EMCC_CFLAGS}"
         EMCC_CFLAGS="-DPATCH_PLUGIN=/data/git/pg/pg_plugin.h ${EMCC_CFLAGS}"
@@ -462,7 +466,7 @@ fi
 CMD="${PREFIX}/postgres --single $PGFIXES $CKSUM_S -D ${PGDATA} -F -O -j $PGOPTS template1"
 echo "\$CMD < \$SQL.single.sql"
 \$CMD < \$SQL.single.sql \\
- | grep -v --line-buffered '^pg> \$' \\
+ | grep -v --line-buffered '^pg> .\$' \\
  | grep -v --line-buffered ^\$
 
 rm $PGDATA/postmaster.pid
@@ -516,12 +520,12 @@ then
     . /opt/python-wasm-sdk/wasm32-bi-emscripten-shell.sh
 
 
-    # build single lib static/shared
-    if [ -f /data/git/pg/local.sh ]
+    # build single lib static/shared/web(for CI)
+    if $CI
     then
-        . /data/git/pg/local.sh
-    else
         . $GITHUB_WORKSPACE/link.sh
+    else
+        . /data/git/pg/local.sh
     fi
 
     echo "========== $CI : $GITHUB_WORKSPACE ======"

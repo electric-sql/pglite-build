@@ -22,7 +22,10 @@ jobs:
         SDK_ARCHIVE: python3.12-wasm-sdk-Ubuntu-22.04.tar.lz4
         SDKROOT: /opt/python-wasm-sdk
         SYS_PYTHON: /usr/bin/python3
-
+        PGROOT: /tmp/pglite
+        PYGBAG: false
+        DEBUG: false
+    
 
     steps:
     - uses: actions/checkout@v4.1.1
@@ -34,9 +37,6 @@ jobs:
         sudo apt-get install -y lz4 wget pv bash
         echo https://github.com/pygame-web/python-wasm-sdk/releases/download/$SDK_VERSION/$SDK_ARCHIVE
         curl -sL --retry 5 https://github.com/pygame-web/python-wasm-sdk/releases/download/$SDK_VERSION/$SDK_ARCHIVE | tar xvP --use-compress-program=lz4 | pv -p -l -s 24400 >/dev/null
-        curl https://wasmtime.dev/install.sh -sSf | bash
-        mkdir -p /opt/python-wasm-sdk/wasisdk/bin
-        mv -vf $(find $HOME/|grep /wasmtime$) /opt/python-wasm-sdk/wasisdk/bin/
 
       working-directory: /
 
