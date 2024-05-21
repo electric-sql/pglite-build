@@ -492,9 +492,13 @@ then
 
     echo "      ======= testing with opts: $@ =========   "
 
-
-	$PREFIX/initdb.sh   2>&1 | grep --line-buffered -v ^var\ Module
-	echo "initdb.sh done, now init sql default database"
+    if ${CI:-false}
+    then
+        echo " ========= TODO: handle CI initdb ============"
+    else
+    	$PREFIX/initdb.sh   2>&1 | grep --line-buffered -v ^var\ Module
+    	echo "initdb.sh done, now init sql default database"
+    fi
 
 	if [ -f ${PGDATA}/postmaster.pid ]
 	then

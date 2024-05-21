@@ -818,14 +818,14 @@ puts("# 808: REPL:Begin" __FILE__ );
     	}
     }
 #else
-puts("# 821: hybrid loop:Begin" __FILE__ );
+printf("# 821: hybrid loop:Begin CI=%s\n", getenv("CI") );
     fprintf(stdout,"pg> %c\n", 4);
-	while (repl) {
+	while (repl && !proc_exit_inprogress) {
         interactive_one();
 	}
 #endif
-
-    puts("\n\n# 828: REPL:End " __FILE__);
+    puts("\n\n# 827: REPL:End " __FILE__);
+    abort();
 #if !defined(PG_INITDB_MAIN)
     proc_exit(0);
 #endif
