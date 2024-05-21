@@ -177,7 +177,7 @@ if (ENVIRONMENT_IS_NODE) {
 
 // --pre-jses are emitted after the Module integration code, so that they can
 // refer to Module (if they choose; they can also define Module)
-// include: /tmp/tmpghjh7f8f.js
+// include: /tmp/tmpz2a9i5dv.js
 
   if (!Module.expectedDataFileDownloads) {
     Module.expectedDataFileDownloads = 0;
@@ -404,21 +404,21 @@ Module['FS_createPath']("/tmp/pglite/share/postgresql", "tsearch_data", true, tr
 
   })();
 
-// end include: /tmp/tmpghjh7f8f.js
-// include: /tmp/tmpdjheinhs.js
+// end include: /tmp/tmpz2a9i5dv.js
+// include: /tmp/tmp7l4y8ro4.js
 
     // All the pre-js content up to here must remain later on, we need to run
     // it.
     if (Module['$ww'] || (typeof ENVIRONMENT_IS_PTHREAD != 'undefined' && ENVIRONMENT_IS_PTHREAD)) Module['preRun'] = [];
     var necessaryPreJSTasks = Module['preRun'].slice();
-  // end include: /tmp/tmpdjheinhs.js
-// include: /tmp/tmpbmqd8k97.js
+  // end include: /tmp/tmp7l4y8ro4.js
+// include: /tmp/tmpiwd7didi.js
 
     if (!Module['preRun']) throw 'Module.preRun should exist because file support used it; did a pre-js delete it?';
     necessaryPreJSTasks.forEach(function(task) {
       if (Module['preRun'].indexOf(task) < 0) throw 'All preRun tasks that exist before user pre-js code should remain after; did you replace Module or modify Module.preRun?';
     });
-  // end include: /tmp/tmpbmqd8k97.js
+  // end include: /tmp/tmpiwd7didi.js
 
 
 // Sometimes an existing Module object exists with properties
@@ -31222,7 +31222,7 @@ var _pg_wchar_table = Module['_pg_wchar_table'] = 5935120;
 var _pg_number_of_ones = Module['_pg_number_of_ones'] = 5756240;
 var _months = Module['_months'] = 5865120;
 var _days = Module['_days'] = 5865184;
-var _day_tab = Module['_day_tab'] = 5495856;
+var _day_tab = Module['_day_tab'] = 5495872;
 var _nullSemAction = Module['_nullSemAction'] = 6005812;
 var _IDB_STAGE = Module['_IDB_STAGE'] = 6005808;
 var _IDB_PIPE_FP = Module['_IDB_PIPE_FP'] = 6005804;
