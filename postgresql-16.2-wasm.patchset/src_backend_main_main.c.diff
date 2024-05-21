@@ -1,6 +1,6 @@
 --- postgresql-16.2/src/backend/main/main.c	2024-02-05 22:41:37.000000000 +0100
-+++ postgresql-16.2-wasm/src/backend/main/main.c	2024-05-06 08:20:15.237406546 +0200
-@@ -41,20 +41,19 @@
++++ postgresql-16.2-wasm/src/backend/main/main.c	2024-05-16 10:25:30.962773142 +0200
+@@ -41,20 +41,20 @@
  #include "utils/pg_locale.h"
  #include "utils/ps_status.h"
  
@@ -21,10 +21,11 @@
 +#if defined(__EMSCRIPTEN__) || defined(__wasi__)
 +#include PG_MAIN_INCLUDE
 +#else
++const char* progname;
  int
  main(int argc, char *argv[])
  {
-@@ -199,6 +198,7 @@
+@@ -199,6 +199,7 @@
  	/* the functions above should not return */
  	abort();
  }

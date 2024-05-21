@@ -1,0 +1,138 @@
+--- postgresql-16.2/src/backend/libpq/pqcomm.c	2024-02-05 22:41:37.000000000 +0100
++++ postgresql-16.2-wasm/src/backend/libpq/pqcomm.c	2024-05-21 08:44:24.776111194 +0200
+@@ -136,6 +136,7 @@
+ 
+ 
+ /* Internal functions */
++
+ static void socket_comm_reset(void);
+ static void socket_close(int code, Datum arg);
+ static void socket_set_nonblocking(bool nonblocking);
+@@ -146,10 +147,43 @@
+ static void socket_putmessage_noblock(char msgtype, const char *s, size_t len);
+ static int	internal_putbytes(const char *s, size_t len);
+ static int	internal_flush(void);
++#if 0
++static void wasm_comm_reset() {
++    puts(" ******************************** wasm_comm_reset");
++}
+ 
+-static int	Lock_AF_UNIX(const char *unixSocketDir, const char *unixSocketPath);
+-static int	Setup_AF_UNIX(const char *sock_path);
++static int wasm_flush() {
++    puts(" ******************************** wasm_flush");
++    return 0;
++}
+ 
++static int wasm_flush_if_writable() {
++    puts(" ******************************** wasm_flush_if_writable");
++    return 0;
++}
++
++static int wasm_putmessage(char msgtype, const char *s, size_t len) {
++    puts(" ******************************** wasm_putmessage");
++    return 0;
++}
++
++static bool wasm_is_send_pending(void) {
++    puts(" ******************************** wasm_is_send_pending");
++    return false;
++}
++static void wasm_putmessage_noblock(char msgtype, const char *s, size_t len) {
++    puts(" ******************************** wasm_putmessage_noblock");
++}
++
++static const PQcommMethods PqCommSocketMethods = {
++	wasm_comm_reset,
++	wasm_flush,
++	wasm_flush_if_writable,
++	wasm_is_send_pending,
++	wasm_putmessage,
++    wasm_putmessage_noblock
++};
++#else
+ static const PQcommMethods PqCommSocketMethods = {
+ 	socket_comm_reset,
+ 	socket_flush,
+@@ -158,6 +192,10 @@
+ 	socket_putmessage,
+ 	socket_putmessage_noblock
+ };
++#endif
++static int	Lock_AF_UNIX(const char *unixSocketDir, const char *unixSocketPath);
++static int	Setup_AF_UNIX(const char *sock_path);
++
+ 
+ const PQcommMethods *PqCommMethods = &PqCommSocketMethods;
+ 
+@@ -972,7 +1010,14 @@
+ 		return 0;
+ 	}
+ }
+-
++#if defined(I_EMSCRIPTEN)
++EMSCRIPTEN_KEEPALIVE void
++pq_recvbuf_fill(FILE* fp, int packetlen) {
++    fread( PqRecvBuffer, packetlen, 1, fp);
++    PqRecvPointer = 0;
++    PqRecvLength = packetlen;
++}
++#endif
+ /* --------------------------------
+  *		pq_getbyte	- get a single byte from connection, or return EOF
+  * --------------------------------
+@@ -1163,7 +1208,7 @@
+ 		ereport(FATAL,
+ 				(errcode(ERRCODE_PROTOCOL_VIOLATION),
+ 				 errmsg("terminating connection because protocol synchronization was lost")));
+-
++puts("# 1166 pq_startmsgread");
+ 	PqCommReadingMsg = true;
+ }
+ 
+@@ -1286,9 +1331,36 @@
+ 
+ 	return 0;
+ }
++#if defined(__EMSCRIPTEN__) || defined(__wasm__)
++
++extern FILE* SOCKET_FILE;
++extern int SOCKET_DATA;
++
++static int
++internal_putbytes(const char *s, size_t len) {
++	if (PqSendPointer >= PqSendBufferSize)
++	{
++        puts("# 1336: overflow");
++    }
++    int wc=      fwrite(s, 1, len, SOCKET_FILE);
++    fprintf(stderr,"# sockfile %d +%d\n", SOCKET_DATA, wc);
++    SOCKET_DATA+=wc;
++    return 0;
++}
+ 
++static int
++socket_flush(void) {
++    return internal_flush();
++}
+ 
+ static int
++internal_flush(void) {
++    puts("# 1355: flush");
++	PqSendStart = PqSendPointer = 0;
++	return 0;
++}
++#else
++static int
+ internal_putbytes(const char *s, size_t len)
+ {
+ 	size_t		amount;
+@@ -1407,7 +1479,7 @@
+ 	PqSendStart = PqSendPointer = 0;
+ 	return 0;
+ }
+-
++#endif
+ /* --------------------------------
+  *		pq_flush_if_writable - flush pending output if writable without blocking
+  *

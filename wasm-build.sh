@@ -117,8 +117,9 @@ pgac_cv_sse42_crc32_intrinsics__msse4_2=no
 pgac_sse42_crc32_intrinsics=no
 pgac_armv8_crc32c_intrinsics=no
 ac_cv_search_sem_open=no
-ac_cv_file__dev_urandom=no
 END
+
+# ac_cv_file__dev_urandom=no
 
 
 # workaround no "locale -a" for Node.
@@ -134,6 +135,7 @@ END
 if ${DEBUG:-true}
 then
     DEBUG="--enable-debug"
+    DEBUG=""
     CDEBUG="-g3 -O0"
 else
     DEBUG=""
@@ -258,7 +260,7 @@ then
         echo configure ok
     else
         echo configure failed
-        exit 161
+        exit 262
     fi
 
     sed -i 's|ZIC= ./zic|ZIC= zic|g' ./src/timezone/Makefile
@@ -269,7 +271,7 @@ then
         echo "dyld server patch ok"
     else
         echo "missing server dyld patch"
-        exit 219
+        exit 273
     fi
     mkdir -p bin
 
@@ -323,10 +325,17 @@ END
 
     EMCC_WEB="-sNO_EXIT_RUNTIME=1 -sENVIRONMENT=web"
     EMCC_NODE="-sEXIT_RUNTIME=1 -DEXIT_RUNTIME -sNODERAWFS -sENVIRONMENT=node"
-    EMCC_ENV=${EMCC_NODE}
 
-    # export EMCC_CFLAGS="-lwebsocket.js -sPROXY_POSIX_SOCKETS -pthread -sPROXY_TO_PTHREAD $EMCC_CFLAGS"
+    # -lwebsocket.js"
+    # -sWEBSOCKET_SUBPROTOCOL=binary -sWEBSOCKET_URL=ws://127.0.0.1:25432"
+
+    # -lwebsocket.js
+    # -sPROXY_POSIX_SOCKETS -pthread -sPROXY_TO_PTHREAD $EMCC_CFLAGS"
+
     #  -sWASMFS
+
+    EMCC_ENV="${EMCC_NODE} -sFORCE_FILESYSTEM=0"
+    EMCC_ENV="${EMCC_NODE}"
 
     # only required for static initdb
     EMCC_CFLAGS="-sERROR_ON_UNDEFINED_SYMBOLS=0"
@@ -337,9 +346,11 @@ END
     if $CI
     then
         EMCC_CFLAGS="-DPATCH_MAIN=${GITHUB_WORKSPACE}/pg_main.c ${EMCC_CFLAGS}"
+        EMCC_CFLAGS="-DPATCH_LOOP=${GITHUB_WORKSPACE}/interactive_one.c ${EMCC_CFLAGS}"
         EMCC_CFLAGS="-DPATCH_PLUGIN=${GITHUB_WORKSPACE}/pg_plugin.h ${EMCC_CFLAGS}"
     else
         EMCC_CFLAGS="-DPATCH_MAIN=/data/git/pg/pg_main.c ${EMCC_CFLAGS}"
+        EMCC_CFLAGS="-DPATCH_LOOP=/data/git/pg/interactive_one.c ${EMCC_CFLAGS}"
         EMCC_CFLAGS="-DPATCH_PLUGIN=/data/git/pg/pg_plugin.h ${EMCC_CFLAGS}"
     fi
 
@@ -357,16 +368,20 @@ END
         else
             cat /tmp/install.log
             echo "install failed"
-            exit 236
+            exit 368
         fi
     else
         cat /tmp/build.log
         echo "build failed"
-        exit 241
+        exit 373
 	fi
 
-	mv -vf ./src/bin/initdb/initdb.wasm ./src/backend/postgres.wasm ./src/backend/postgres.map ${PREFIX}/bin/
-    mv -vf ./src/bin/pg_resetwal/pg_resetwal.wasm  ./src/bin/pg_dump/pg_restore.wasm ./src/bin/pg_dump/pg_dump.wasm ./src/bin/pg_dump/pg_dumpall.wasm ${PREFIX}/bin/
+    # wip
+    mv -vf ./src/bin/psql/psql.wasm ${PREFIX}/bin/
+    mv -vf  ./src/bin/pg_dump/pg_restore.wasm ./src/bin/pg_dump/pg_dump.wasm ./src/bin/pg_dump/pg_dumpall.wasm ${PREFIX}/bin/
+
+    # ok
+	mv -vf ./src/bin/pg_resetwal/pg_resetwal.wasm  ./src/bin/initdb/initdb.wasm ./src/backend/postgres.wasm ./src/backend/postgres.map ${PREFIX}/bin/
 	mv -vf ./src/bin/initdb/initdb ${PREFIX}/bin/initdb.js
 	mv -vf ./src/bin/pg_resetwal/pg_resetwal ${PREFIX}/bin/pg_resetwal.js
 	mv -vf ./src/backend/postgres ${PREFIX}/bin/postgres.js
@@ -409,28 +424,8 @@ SQL=/tmp/initdb-\$\$
 
 ${PREFIX}/initdb --no-clean --wal-segsize=1 -g $LANG $CRED --pgdata=${PGDATA}
 
-# 2> /tmp/initdb-\$\$.log
-
 mv /tmp/initdb.boot.txt \${SQL}.boot.sql
 mv /tmp/initdb.single.txt \${SQL}.single.sql
-
-
-#grep -v dynamic_shared_memory_type ${PGDATA}/postgresql.conf > /tmp/pg-\$\$.conf
-#mv /tmp/pg-\$\$.conf ${PGDATA}/postgresql.conf
-
-
-#grep -v ^invalid\\ binary /tmp/initdb-\$\$.log \\
-# | csplit - -s -n 1 -f \${SQL}-split /^build\\ indices\$/1
-#
-#grep -v ^invalid\\ binary /tmp/initdb.txt \\
-# | csplit - -s -n 1 -f \${SQL}-split /^build\\ indices\$/1
-#
-#grep -v ^# \${SQL}-split0 > \${SQL}.boot.sql
-#rm \${SQL}-split0
-#grep -v ^# \${SQL}-split1 | grep -v ^warning \\
-#  | grep -v '^/\\*'  | grep -v '^ \\*' | grep -v '^ \\*/'  >> \${SQL}.single.sql
-#
-
 
 if \${CI:-false}
 then
@@ -478,8 +473,6 @@ then
     echo cleaning up sql journal
     read
 fi
-
-# rm  /tmp/initdb-\$\$.log \${SQL}-split1
 
 rm /tmp/initdb-\$\$.*.sql
 END

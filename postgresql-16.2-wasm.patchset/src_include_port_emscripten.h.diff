@@ -1,6 +1,6 @@
 --- postgresql-16.2/src/include/port/emscripten.h	2024-04-30 08:02:57.615354846 +0200
-+++ postgresql-16.2-wasm/src/include/port/emscripten.h	2024-05-13 16:53:05.055030911 +0200
-@@ -0,0 +1,301 @@
++++ postgresql-16.2-wasm/src/include/port/emscripten.h	2024-05-20 17:40:06.840860779 +0200
+@@ -0,0 +1,330 @@
 +/* src/include/port/emscripten.h */
 +
 +#ifndef I_EMSCRIPTEN
@@ -50,6 +50,13 @@
 +        "-c", "min_wal_size=80MB",\
 +        "-c", "shared_buffers=128MB"
 +
++
++// socket emulation via file
++#define PGS_ILOCK "/tmp/.s.PGSQL.5432.lock.in"
++#define PGS_IN "/tmp/.s.PGSQL.5432.in"
++
++#define PGS_OLOCK "/tmp/.s.PGSQL.5432.lock.out"
++#define PGS_OUT "/tmp/.s.PGSQL.5432.out"
 +
 +
 +#if defined(PREFIX)
@@ -106,6 +113,19 @@
 +
 +#define proc_exit(arg) pg_proc_exit(arg)
 +
++/*
++#include <stdio.h> // fprintf
++#include <sys/ioctl.h>
++static int em_ioctl(int fd, int request, char *argp) {
++    fprintf(stderr, "ioctl(fd=%d, req=%d, %p)\n", fd, request, argp );
++    int r=ioctl(fd,request, argp);
++    fprintf(stderr, "ioctl(fd=%d, req=%d, %p) = %d\n", fd, request, argp, r );
++    return r;
++}
++
++#define ioctl(fd, request, ...) em_ioctl(fd, request, __VA_ARGS__)
++*/
++
 +// only needed for preloading of plugins.
 +// #define lowerstr(str) pg_lowerstr(str)
 +
@@ -133,7 +153,14 @@
 +#include <stdio.h> // FILE
 +
 +EMSCRIPTEN_KEEPALIVE FILE*
++SOCKET_FILE = NULL;
++
++EMSCRIPTEN_KEEPALIVE int
++SOCKET_DATA = 0;
++
++EMSCRIPTEN_KEEPALIVE FILE*
 +IDB_PIPE_FP = NULL;
++
 +EMSCRIPTEN_KEEPALIVE int
 +IDB_STAGE = 0;
 +
@@ -161,8 +188,10 @@
 + */
 +#if defined(PG_INITDB) && !defined(PG_MAIN)
 +#define popen(command, mode) pg_popen(command, mode)
-+#include <stdio.h> // FILE
++#include <stdio.h> // FILE+fprintf
 +extern FILE* IDB_PIPE_FP;
++extern FILE* SOCKET_FILE;
++extern int SOCKET_DATA;
 +extern int IDB_STAGE;
 +FILE *pg_popen(const char *command, const char *type) {
 +    if (IDB_STAGE>1) {

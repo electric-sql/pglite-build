@@ -1,5 +1,5 @@
 --- postgresql-16.2/src/fe_utils/string_utils.c	2024-02-05 22:41:37.000000000 +0100
-+++ postgresql-16.2-wasm/src/fe_utils/string_utils.c	2024-05-08 04:09:11.630550876 +0200
++++ postgresql-16.2-wasm/src/fe_utils/string_utils.c	2024-05-16 10:26:34.343857054 +0200
 @@ -23,7 +23,9 @@
  static PQExpBuffer defaultGetLocalPQExpBuffer(void);
  
@@ -20,12 +20,3 @@
  		need_quotes = true;
  	/* slightly different rules for first character */
  	else if (!((rawid[0] >= 'a' && rawid[0] <= 'z') || rawid[0] == '_'))
-@@ -425,7 +427,7 @@
-  * appendShellStringNoError() omits those characters from the result, and
-  * returns false if there were any.
-  */
--void
-+EMSCRIPTEN_KEEPALIVE void
- appendShellString(PQExpBuffer buf, const char *str)
- {
- 	if (!appendShellStringNoError(buf, str))
