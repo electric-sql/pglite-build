@@ -39,6 +39,13 @@ SubPostmasterMain / (forkexec)
 -> pq_flush() is synchronous
 
 
+buffer sizes:
+
+    https://github.com/postgres/postgres/blob/master/src/backend/libpq/pqcomm.c#L118
+
+    https://github.com/postgres/postgres/blob/master/src/common/stringinfo.c#L28
+
+
 
 */
 extern int	ProcessStartupPacket(Port *port, bool ssl_done, bool gss_done);
@@ -124,61 +131,62 @@ interactive_one() {
     FILE *stream ;
     int packetlen;
     bool is_socket = false;
-/*
-    https://github.com/postgres/postgres/blob/master/src/common/stringinfo.c#L28
 
-*/
-    int busy=0;
-    while (access(PGS_OLOCK, F_OK) == 0) {
-        if (!(busy++ % 6553600))
-            printf("FIXME: busy wait lock removed %d\n", busy);
-    }
-
-    if (!MyProcPort) {
-        ClientAuthInProgress = false;
-    	pq_init();					/* initialize libpq to talk to client */
-    	whereToSendOutput = DestRemote; /* now safe to ereport to client */
-        MyProcPort = (Port *) calloc(1, sizeof(Port));
-        if (!MyProcPort) {
-            puts("      --------- NO CLIENT (oom) ---------");
-            abort();
+    if (is_node) {
+        int busy = 0;
+        while (access(PGS_OLOCK, F_OK) == 0) {
+            if (!(busy++ % 6553600))
+                printf("FIXME: busy wait lock removed %d\n", busy);
         }
-        MyProcPort->canAcceptConnections = CAC_OK;
+
+        if (!MyProcPort) {
+            ClientAuthInProgress = false;
+        	pq_init();					/* initialize libpq to talk to client */
+        	whereToSendOutput = DestRemote; /* now safe to ereport to client */
+            MyProcPort = (Port *) calloc(1, sizeof(Port));
+            if (!MyProcPort) {
+                puts("      --------- NO CLIENT (oom) ---------");
+                abort();
+            }
+            MyProcPort->canAcceptConnections = CAC_OK;
 
 
-        SOCKET_FILE = NULL;
-        SOCKET_DATA = 0;
-        puts("      --------- CLIENT (ready) ---------");
-    }
+            SOCKET_FILE = NULL;
+            SOCKET_DATA = 0;
+            puts("      --------- CLIENT (ready) ---------");
+        }
 
 
-// this could be pg_flush in sync mode.
-    if (SOCKET_DATA>0) {
-        ReadyForQuery(whereToSendOutput);
+    // this could be pg_flush in sync mode.
+        if (SOCKET_DATA>0) {
 
-        puts("flushing data");
-        if (SOCKET_FILE)
-            fclose(SOCKET_FILE);
+            puts("end packet");
+            ReadyForQuery(whereToSendOutput);
 
-        puts("setting lock");
-        FILE *c_lock;
-        c_lock = fopen(PGS_OLOCK, "w");
-        fclose(c_lock);
-        SOCKET_FILE = NULL;
-        SOCKET_DATA = 0;
-/*
-    while (access(PGS_OLOCK, F_OK) == 0) {
-        if (!(busy++ % 6553600))
-            printf("FIXME: busy wait lock removed %d\n", busy);
-    }
-*/
-        return;
-    }
+            puts("flushing data");
+            if (SOCKET_FILE)
+                fclose(SOCKET_FILE);
 
-    if (!SOCKET_FILE) {
-        SOCKET_FILE =  fopen(PGS_OUT,"w") ;
-        MyProcPort->sock = fileno(SOCKET_FILE);
-    }
+            puts("setting lock");
+            FILE *c_lock;
+            c_lock = fopen(PGS_OLOCK, "w");
+            fclose(c_lock);
+            SOCKET_FILE = NULL;
+            SOCKET_DATA = 0;
+    /*
+        while (access(PGS_OLOCK, F_OK) == 0) {
+            if (!(busy++ % 6553600))
+                printf("FIXME: busy wait lock removed %d\n", busy);
+        }
+    */
+            return;
+        }
+
+        if (!SOCKET_FILE) {
+            SOCKET_FILE =  fopen(PGS_OUT,"w") ;
+            MyProcPort->sock = fileno(SOCKET_FILE);
+        }
+    } // is_node
 
     doing_extended_query_message = false;
     MemoryContextSwitchTo(MessageContext);
@@ -192,103 +200,115 @@ interactive_one() {
 
     #define IO ((char *)(1))
 
-
-    if (access(PGS_ILOCK, F_OK) != 0) {
-        packetlen = 0;
-        FILE *fp;
-// TODO: lock file
-        fp = fopen(PGS_IN, "r");
-        if (fp) {
-            fseek(fp, 0L, SEEK_END);
-            packetlen = ftell(fp);
-            if (packetlen) {
-                whereToSendOutput = DestRemote;
-                resetStringInfo(inBuf);
-                rewind(fp);
-                firstchar = getc(fp);
-
-                // first packet
-                if (!firstchar || (firstchar==112)) {
+    if (is_node) {
+        if (access(PGS_ILOCK, F_OK) != 0) {
+            packetlen = 0;
+            FILE *fp;
+    // TODO: lock file
+            fp = fopen(PGS_IN, "r");
+            if (fp) {
+                fseek(fp, 0L, SEEK_END);
+                packetlen = ftell(fp);
+                if (packetlen) {
+                    whereToSendOutput = DestRemote;
+                    resetStringInfo(inBuf);
                     rewind(fp);
+                    firstchar = getc(fp);
 
-                    if (!firstchar) {
-                        pq_recvbuf_fill(fp, packetlen);
-                        if (ProcessStartupPacket(MyProcPort, true, true) != STATUS_OK) {
-                            puts("ProcessStartupPacket !OK");
-                        } else {
-                            puts("auth request");
-                            //ClientAuthentication(MyProcPort);
-                            md5Salt[0]=0x01;
-                            md5Salt[1]=0x23;
-                            md5Salt[2]=0x45;
-                            md5Salt[3]=0x56;
-                            {
-                                StringInfoData buf;
-	                            pq_beginmessage(&buf, 'R');
-	                            pq_sendint32(&buf, (int32) AUTH_REQ_MD5);
-	                            if (md5Salt_len > 0)
-		                            pq_sendbytes(&buf, md5Salt, md5Salt_len);
-	                            pq_endmessage(&buf);
-                                pq_flush();
+                    // first packet
+                    if (!firstchar || (firstchar==112)) {
+                        rewind(fp);
+
+                        if (!firstchar) {
+                            pq_recvbuf_fill(fp, packetlen);
+                            if (ProcessStartupPacket(MyProcPort, true, true) != STATUS_OK) {
+                                puts("ProcessStartupPacket !OK");
+                            } else {
+                                puts("auth request");
+                                //ClientAuthentication(MyProcPort);
+    ClientAuthInProgress = true;
+                                md5Salt[0]=0x01;
+                                md5Salt[1]=0x23;
+                                md5Salt[2]=0x45;
+                                md5Salt[3]=0x56;
+                                {
+                                    StringInfoData buf;
+	                                pq_beginmessage(&buf, 'R');
+	                                pq_sendint32(&buf, (int32) AUTH_REQ_MD5);
+	                                if (md5Salt_len > 0)
+		                                pq_sendbytes(&buf, md5Salt, md5Salt_len);
+	                                pq_endmessage(&buf);
+                                    pq_flush();
+                                }
                             }
                         }
-                    }
-                    if (firstchar==112) {
-                        pq_recvbuf_fill(fp, packetlen);
-                        char *passwd = recv_password_packet(MyProcPort);
-                        printf("auth recv password: %s\n", "md5***" );
+                        if (firstchar==112) {
+                            pq_recvbuf_fill(fp, packetlen);
+                            char *passwd = recv_password_packet(MyProcPort);
+                            printf("auth recv password: %s\n", "md5***" );
+    ClientAuthInProgress = false;
+    /*
+                        // TODO: CheckMD5Auth
+                            if (passwd == NULL)
+                                return STATUS_EOF;
+                            if (shadow_pass)
+                                result = md5_crypt_verify(port->user_name, shadow_pass, passwd, md5Salt, md5Salt_len, logdetail);
+                            else
+                                result = STATUS_ERROR;
+    */
+                            pfree(passwd);
+                            {
+                                StringInfoData buf;
+                                pq_beginmessage(&buf, 'R');
+                                pq_sendint32(&buf, (int32) AUTH_REQ_OK);
+                                pq_endmessage(&buf);
+                            }
+                            BeginReportingGUCOptions();
+    pgstat_report_connect(MyDatabaseId);
+                            {
+	                            StringInfoData buf;
+	                            pq_beginmessage(&buf, 'K');
+	                            pq_sendint32(&buf, (int32) MyProcPid);
+	                            pq_sendint32(&buf, (int32) MyCancelKey);
+	                            pq_endmessage(&buf);
+                            }
+                            puts("TODO: pg_main start flag");
 
-/*
-                    // TODO: CheckMD5Auth
-                        if (passwd == NULL)
-                            return STATUS_EOF;
-                        if (shadow_pass)
-                            result = md5_crypt_verify(port->user_name, shadow_pass, passwd, md5Salt, md5Salt_len, logdetail);
-                        else
-                            result = STATUS_ERROR;
-*/
-                        pfree(passwd);
-                        puts("TODO: pg_main start flag");
-/*
-                        {
-	                        StringInfoData buf;
-	                        pq_beginmessage(&buf, 'K');
-	                        pq_sendint32(&buf, (int32) MyProcPid);
-	                        pq_sendint32(&buf, (int32) MyCancelKey);
-	                        pq_endmessage(&buf);
+
+
+
                         }
-*/
-
-                    }
-                } else {
-                    fprintf(stderr, "incoming=%d [%d, ", packetlen, firstchar);
-                    for (int i=1;i<packetlen;i++) {
-                        int b = getc(fp);
-                        if (i>4) {
-                            appendStringInfoChar(inBuf, (char)b);
-                            fprintf(stderr, "%d, ", b);
+                    } else {
+                        fprintf(stderr, "incoming=%d [%d, ", packetlen, firstchar);
+                        for (int i=1;i<packetlen;i++) {
+                            int b = getc(fp);
+                            if (i>4) {
+                                appendStringInfoChar(inBuf, (char)b);
+                                fprintf(stderr, "%d, ", b);
+                            }
                         }
+                        fprintf(stderr, "]\n");
                     }
-                    fprintf(stderr, "]\n");
+                    // when using lock
+                    //ftruncate(filenum(fp), 0);
                 }
-                // when using lock
-                //ftruncate(filenum(fp), 0);
-            }
-            fclose(fp);
-            unlink(PGS_IN);
-            if (packetlen) {
-                if (!firstchar || (firstchar==112)) {
-                    puts("auth/nego skipped");
-                    return;
-                }
+                fclose(fp);
+                unlink(PGS_IN);
+                if (packetlen) {
+                    if (!firstchar || (firstchar==112)) {
+                        puts("auth/nego skip");
+                        return;
+                    }
 
-                is_socket = true;
-                whereToSendOutput == DestRemote;
-                goto incoming;
+                    is_socket = true;
+                    whereToSendOutput == DestRemote;
+                    goto incoming;
+                }
             }
+            //no use on node. usleep(10);
         }
-        //no use on node. usleep(10);
-    }
+
+    } // is_node
 
     c = IO[0];
 
