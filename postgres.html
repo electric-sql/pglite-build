@@ -309,7 +309,7 @@
                 if (window.worker) {
                     window.worker.postMessage({ target: 'custom', userData: ud });
                 } else {
-                    this.postMessage(ud);
+                    window.Module.postMessage(ud);
                 }
             }
           };
