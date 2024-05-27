@@ -37,7 +37,7 @@ fi
 
 #> pglite/packages/pglite/release/postgres.js
 cp ${WEBROOT}/postgres.{js,data,wasm} pglite/packages/pglite/release/
-cp ${WEBROOT}/libecpg.so pglite/packages/pglite/release/pgbuild.so
+cp ${WEBROOT}/libecpg.so pglite/packages/pglite/release/postgres.so
 mv pglite/packages/pglite/release/postgres.js pglite/packages/pglite/release/pgbuild.js
 
 cat > pglite/packages/pglite/release/share.js <<END
