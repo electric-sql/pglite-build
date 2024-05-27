@@ -147,12 +147,22 @@ static void wait_unlock() {
 }
 
 EMSCRIPTEN_KEEPALIVE int
-cma_size = 0;
+cma_wsize = 0;
+
+EMSCRIPTEN_KEEPALIVE int
+cma_rsize = 0;
+
 
 EMSCRIPTEN_KEEPALIVE void
-interactive_read(int size) {
-    cma_size = size;
+interactive_write(int size) {
+    cma_rsize = size;
 }
+
+EMSCRIPTEN_KEEPALIVE int
+interactive_read() {
+    return cma_wsize;
+}
+
 
 EMSCRIPTEN_KEEPALIVE void
 interactive_one() {
@@ -327,7 +337,7 @@ interactive_one() {
 
     } // is_node
 
-    if (cma_size) {
+    if (cma_rsize) {
         puts("wire message !");
         is_wire = true;
         is_socket = false;
@@ -351,8 +361,6 @@ interactive_one() {
         }
         printf("# fd %s: %s fd=%d\n", PGS_OUT, IO, MyProcPort->sock);
 
-        // always free kernel buffer !!!
-        cma_size = 0;
         goto incoming;
 
     }
@@ -461,7 +469,6 @@ incoming:
 	PG_exception_stack = &local_sigjmp_buf;
 
 
-
     if (is_wire) {
         /* wire on a socket */
         if (is_socket) {
@@ -469,8 +476,19 @@ incoming:
             fprintf(stdout, "SOCKET[%c]: %s", firstchar, inBuf->data);
 
         } else {
-            fprintf(stdout, "\nRAW WIRE: %s", inBuf->data);
-            fprintf(stdout, "\n");
+            whereToSendOutput = DestRemote;
+            firstchar = SocketBackend(&input_message);
+            fprintf(stdout, "RAW WIRE: %d [%c]/%d:[%s]\n", cma_rsize, firstchar, inBuf->len, inBuf->data);
+/*
+            if (cma_rsize==24) {
+        puts("dump!");
+            {
+                #include "pg_proto.c"
+            }
+            fprintf(stdout, "RAW DBG : %d [%c]/%d:[%s]\n", cma_rsize, firstchar, inBuf->len, inBuf->data);
+            whereToSendOutput = DestDebug;
+            }
+*/
         }
 
     } else {
@@ -493,13 +511,16 @@ incoming:
 
     #include "pg_proto.c"
 
-    if (whereToSendOutput == DestRemote) {
+    if (is_wire) { //whereToSendOutput == DestRemote) {
+        ReadyForQuery(DestRemote);
+        cma_wsize = SOCKET_DATA;
         printf("# exec[%d]\n", SOCKET_DATA);
         if (SOCKET_DATA>0) {
-            ReadyForQuery(DestRemote);
+            cma_wsize = SOCKET_DATA;
             if (SOCKET_FILE) {
                 fclose(SOCKET_FILE);
                 printf("# fd[%d] done\n", SOCKET_DATA);
+
                 SOCKET_FILE = NULL;
                 SOCKET_DATA = 0;
             }
@@ -507,7 +528,7 @@ incoming:
     }
 
     // always free kernel buffer !!!
-    cma_size = 0;
+    cma_rsize = 0;
     IO[0] = 0;
 
 
