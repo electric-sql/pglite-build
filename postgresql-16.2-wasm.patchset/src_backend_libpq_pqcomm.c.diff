@@ -1,5 +1,5 @@
 --- postgresql-16.2/src/backend/libpq/pqcomm.c	2024-02-05 22:41:37.000000000 +0100
-+++ postgresql-16.2-wasm/src/backend/libpq/pqcomm.c	2024-05-21 08:44:24.776111194 +0200
++++ postgresql-16.2-wasm/src/backend/libpq/pqcomm.c	2024-05-26 07:36:57.970196422 +0200
 @@ -136,6 +136,7 @@
  
  
@@ -8,7 +8,7 @@
  static void socket_comm_reset(void);
  static void socket_close(int code, Datum arg);
  static void socket_set_nonblocking(bool nonblocking);
-@@ -146,10 +147,43 @@
+@@ -146,11 +147,44 @@
  static void socket_putmessage_noblock(char msgtype, const char *s, size_t len);
  static int	internal_putbytes(const char *s, size_t len);
  static int	internal_flush(void);
@@ -23,7 +23,7 @@
 +    puts(" ******************************** wasm_flush");
 +    return 0;
 +}
- 
++
 +static int wasm_flush_if_writable() {
 +    puts(" ******************************** wasm_flush_if_writable");
 +    return 0;
@@ -41,8 +41,8 @@
 +static void wasm_putmessage_noblock(char msgtype, const char *s, size_t len) {
 +    puts(" ******************************** wasm_putmessage_noblock");
 +}
-+
-+static const PQcommMethods PqCommSocketMethods = {
+ 
+ static const PQcommMethods PqCommSocketMethods = {
 +	wasm_comm_reset,
 +	wasm_flush,
 +	wasm_flush_if_writable,
@@ -51,9 +51,10 @@
 +    wasm_putmessage_noblock
 +};
 +#else
- static const PQcommMethods PqCommSocketMethods = {
++static const PQcommMethods PqCommSocketMethods = {
  	socket_comm_reset,
  	socket_flush,
+ 	socket_flush_if_writable,
 @@ -158,6 +192,10 @@
  	socket_putmessage,
  	socket_putmessage_noblock
@@ -65,11 +66,30 @@
  
  const PQcommMethods *PqCommMethods = &PqCommSocketMethods;
  
-@@ -972,7 +1010,14 @@
- 		return 0;
- 	}
- }
+@@ -180,7 +218,7 @@
+ 	PqSendPointer = PqSendStart = PqRecvPointer = PqRecvLength = 0;
+ 	PqCommBusy = false;
+ 	PqCommReadingMsg = false;
 -
++#if !defined(__EMSCRIPTEN__) && !defined(__wasi__)
+ 	/* set up process-exit hook to close the socket */
+ 	on_proc_exit(socket_close, 0);
+ 
+@@ -214,7 +252,9 @@
+ 								  MyLatch, NULL);
+ 	AddWaitEventToSet(FeBeWaitSet, WL_POSTMASTER_DEATH, PGINVALID_SOCKET,
+ 					  NULL, NULL);
+-
++#else
++    #pragma message "FIXME: socketfile"
++#endif
+ 	/*
+ 	 * The event positions match the order we added them, but let's sanity
+ 	 * check them to be sure.
+@@ -1152,6 +1192,16 @@
+  *		This must be called before any of the pq_get* functions.
+  * --------------------------------
+  */
 +#if defined(I_EMSCRIPTEN)
 +EMSCRIPTEN_KEEPALIVE void
 +pq_recvbuf_fill(FILE* fp, int packetlen) {
@@ -78,19 +98,27 @@
 +    PqRecvLength = packetlen;
 +}
 +#endif
- /* --------------------------------
-  *		pq_getbyte	- get a single byte from connection, or return EOF
-  * --------------------------------
-@@ -1163,7 +1208,7 @@
++extern int cma_size;
++static char *saveb;
+ void
+ pq_startmsgread(void)
+ {
+@@ -1163,7 +1213,13 @@
  		ereport(FATAL,
  				(errcode(ERRCODE_PROTOCOL_VIOLATION),
  				 errmsg("terminating connection because protocol synchronization was lost")));
 -
-+puts("# 1166 pq_startmsgread");
++printf("# 1209 pq_startmsgread cma_size=%d\n", cma_size);
++    if (cma_size) {
++        PqRecvLength = PqRecvPointer = 0;
++        saveb = &PqRecvBuffer[0];
++        (*PqRecvBuffer) = 1;
++        printf("# 1214 pq_startmsgread cma_size=%d save=%p buf=%p\n", cma_size, saveb, &PqRecvBuffer[0]);
++    }
  	PqCommReadingMsg = true;
  }
  
-@@ -1286,9 +1331,36 @@
+@@ -1286,9 +1342,36 @@
  
  	return 0;
  }
@@ -127,7 +155,7 @@
  internal_putbytes(const char *s, size_t len)
  {
  	size_t		amount;
-@@ -1407,7 +1479,7 @@
+@@ -1407,7 +1490,7 @@
  	PqSendStart = PqSendPointer = 0;
  	return 0;
  }

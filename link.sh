@@ -74,7 +74,7 @@ emcc $EMCC_WEB -fPIC $CDEBUG -sMAIN_MODULE=1 \
  -D__PYDK__=1 -DPREFIX=${PREFIX} \
  -sTOTAL_MEMORY=1GB -sSTACK_SIZE=4MB -sALLOW_TABLE_GROWTH -sALLOW_MEMORY_GROWTH -sGLOBAL_BASE=100MB \
  -sMODULARIZE=1 -sEXPORT_ES6=1 -sEXPORT_NAME=Module -sEXPORTED_RUNTIME_METHODS=FS \
- -sEXPORTED_FUNCTIONS=_main \
+ -sEXPORTED_FUNCTIONS=@$GITHUB_WORKSPACE/exports.txt \
  --use-preload-plugins \
  --preload-file ${PREFIX}/share/postgresql@${PREFIX}/share/postgresql \
  --preload-file ${PREFIX}/lib@${PREFIX}/lib \

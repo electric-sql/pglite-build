@@ -41,9 +41,13 @@ jobs:
       working-directory: /
 
 
-    - name: Build PGLite WASM with emsdk
+    - name: Build PG WASM via emsdk
       run: |
         bash ./node-build.sh
+
+    - name: Build PGlite via npm
+      run: |
+      bash ./pglite-build.sh
 
 
     - name: Upload sdk to Github artifacts

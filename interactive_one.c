@@ -122,6 +122,38 @@ recv_password_packet(Port *port)
 int md5Salt_len  = 4;
 char md5Salt[4];
 
+static void io_init() {
+        ClientAuthInProgress = false;
+    	pq_init();					/* initialize libpq to talk to client */
+    	whereToSendOutput = DestRemote; /* now safe to ereport to client */
+        MyProcPort = (Port *) calloc(1, sizeof(Port));
+        if (!MyProcPort) {
+            puts("      --------- NO CLIENT (oom) ---------");
+            abort();
+        }
+        MyProcPort->canAcceptConnections = CAC_OK;
+
+        SOCKET_FILE = NULL;
+        SOCKET_DATA = 0;
+        puts("      --------- CLIENT (ready) ---------");
+}
+
+static void wait_unlock() {
+    int busy = 0;
+    while (access(PGS_OLOCK, F_OK) == 0) {
+        if (!(busy++ % 1110222))
+            printf("FIXME: busy wait lock removed %d\n", busy);
+    }
+}
+
+EMSCRIPTEN_KEEPALIVE int
+cma_size = 0;
+
+EMSCRIPTEN_KEEPALIVE void
+interactive_read(int size) {
+    cma_size = size;
+}
+
 EMSCRIPTEN_KEEPALIVE void
 interactive_one() {
 	int			firstchar;
@@ -131,29 +163,13 @@ interactive_one() {
     FILE *stream ;
     int packetlen;
     bool is_socket = false;
+    bool is_wire = true;
 
-    if (is_node) {
-        int busy = 0;
-        while (access(PGS_OLOCK, F_OK) == 0) {
-            if (!(busy++ % 6553600))
-                printf("FIXME: busy wait lock removed %d\n", busy);
-        }
+    if (is_node && is_repl) {
+        wait_unlock();
 
         if (!MyProcPort) {
-            ClientAuthInProgress = false;
-        	pq_init();					/* initialize libpq to talk to client */
-        	whereToSendOutput = DestRemote; /* now safe to ereport to client */
-            MyProcPort = (Port *) calloc(1, sizeof(Port));
-            if (!MyProcPort) {
-                puts("      --------- NO CLIENT (oom) ---------");
-                abort();
-            }
-            MyProcPort->canAcceptConnections = CAC_OK;
-
-
-            SOCKET_FILE = NULL;
-            SOCKET_DATA = 0;
-            puts("      --------- CLIENT (ready) ---------");
+            io_init();
         }
 
 
@@ -161,7 +177,7 @@ interactive_one() {
         if (SOCKET_DATA>0) {
 
             puts("end packet");
-            ReadyForQuery(whereToSendOutput);
+            ReadyForQuery(DestRemote);
 
             puts("flushing data");
             if (SOCKET_FILE)
@@ -188,6 +204,7 @@ interactive_one() {
         }
     } // is_node
 
+
     doing_extended_query_message = false;
     MemoryContextSwitchTo(MessageContext);
     MemoryContextResetAndDeleteChildren(MessageContext);
@@ -200,7 +217,7 @@ interactive_one() {
 
     #define IO ((char *)(1))
 
-    if (is_node) {
+    if (is_node && is_repl) {
         if (access(PGS_ILOCK, F_OK) != 0) {
             packetlen = 0;
             FILE *fp;
@@ -310,11 +327,71 @@ interactive_one() {
 
     } // is_node
 
+    if (cma_size) {
+        puts("wire message !");
+        is_wire = true;
+        is_socket = false;
+        whereToSendOutput == DestRemote;
+
+        if (!MyProcPort) {
+            ClientAuthInProgress = true;
+            pq_init();
+            MyProcPort = (Port *) calloc(1, sizeof(Port));
+            if (!MyProcPort) {
+                puts("      --------- NO CLIENT (oom) ---------");
+                abort();
+            }
+            MyProcPort->canAcceptConnections = CAC_OK;
+            ClientAuthInProgress = false;
+        }
+
+        if (!SOCKET_FILE) {
+            SOCKET_FILE =  fopen(PGS_OUT,"w") ;
+            MyProcPort->sock = fileno(SOCKET_FILE);
+        }
+        printf("# fd %s: %s fd=%d\n", PGS_OUT, IO, MyProcPort->sock);
+
+        // always free kernel buffer !!!
+        cma_size = 0;
+        goto incoming;
+
+    }
+
     c = IO[0];
+
 
 // TODO: use a msg queue length
     if (!c)
         return;
+
+    if (is_repl) {
+        whereToSendOutput = DestNone;
+        is_wire = false;
+        is_socket = false;
+    } else {
+        is_wire = false;
+        is_socket = false;
+        whereToSendOutput = DestRemote;
+
+        if (!MyProcPort) {
+            ClientAuthInProgress = true;
+            pq_init();
+            MyProcPort = (Port *) calloc(1, sizeof(Port));
+            if (!MyProcPort) {
+                puts("      --------- NO CLIENT (oom) ---------");
+                abort();
+            }
+            MyProcPort->canAcceptConnections = CAC_OK;
+            ClientAuthInProgress = false;
+        }
+
+        if (!SOCKET_FILE) {
+            SOCKET_FILE =  fopen(PGS_OUT,"w") ;
+            MyProcPort->sock = fileno(SOCKET_FILE);
+        }
+        printf("# fd %s: %s fd=%d\n", PGS_OUT, IO, MyProcPort->sock);
+
+    }
 
     // zero copy buffer ( lower wasm memory segment )
     packetlen = strlen(IO);
@@ -383,30 +460,56 @@ incoming:
 
 	PG_exception_stack = &local_sigjmp_buf;
 
-if (!is_socket) {
-	if (whereToSendOutput == DestRemote) {
 
-    		firstchar = SocketBackend(&input_message);
-        fprintf(stdout, "QUERY[%c]: %s", firstchar, inBuf->data);
+
+    if (is_wire) {
+        /* wire on a socket */
+        if (is_socket) {
+            firstchar = SocketBackend(&input_message);
+            fprintf(stdout, "SOCKET[%c]: %s", firstchar, inBuf->data);
+
+        } else {
+            fprintf(stdout, "\nRAW WIRE: %s", inBuf->data);
+            fprintf(stdout, "\n");
+        }
+
     } else {
+        /* nowire */
         if (c == EOF && inBuf->len == 0) {
             fprintf(stderr, "858-EOF !!!\n");
             firstchar = EOF;
 
         } else {
             appendStringInfoChar(inBuf, (char) '\0');
-            if (force_echo && inBuf->len >2)
-                fprintf(stdout, "QUERY: %s", inBuf->data);
         	firstchar = 'Q';
         }
+
+        if (is_repl) {
+            whereToSendOutput = DestDebug;
+            if (force_echo && inBuf->len >2)
+                printf("# wire=%d socket=%d repl=%c: %s", is_wire, is_socket, firstchar, inBuf->data);
+        }
     }
-} else {
 
-    fprintf(stdout, "\nSOCKET: %s", inBuf->data);
-    fprintf(stdout, "\n");
-
-}
     #include "pg_proto.c"
+
+    if (whereToSendOutput == DestRemote) {
+        printf("# exec[%d]\n", SOCKET_DATA);
+        if (SOCKET_DATA>0) {
+            ReadyForQuery(DestRemote);
+            if (SOCKET_FILE) {
+                fclose(SOCKET_FILE);
+                printf("# fd[%d] done\n", SOCKET_DATA);
+                SOCKET_FILE = NULL;
+                SOCKET_DATA = 0;
+            }
+        }
+    }
+
+    // always free kernel buffer !!!
+    cma_size = 0;
+    IO[0] = 0;
+
 
     #undef IO
 }

@@ -335,7 +335,7 @@ END
     #  -sWASMFS
 
     EMCC_ENV="${EMCC_NODE} -sFORCE_FILESYSTEM=0"
-    EMCC_ENV="${EMCC_NODE}"
+    EMCC_ENV="${EMCC_NODE} -sERROR_ON_UNDEFINED_SYMBOLS"
 
     # only required for static initdb
     EMCC_CFLAGS="-sERROR_ON_UNDEFINED_SYMBOLS=0"

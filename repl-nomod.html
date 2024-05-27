@@ -311,11 +311,13 @@
             };
           };
 
+
         window.vm = Module
 
         const { WasmTerminal } = await /**/ import("./vtx.js")
 
         window.vm.vt = new WasmTerminal("repl",132,32,12)
+
         try {
             window.Module = await initModule(vm)
         } catch (x) {

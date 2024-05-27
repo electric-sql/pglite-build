@@ -162,3 +162,4 @@ cython_debug/
 
 /postgresql-16.2.tar.bz2
 /postgresql-16.2/
+/pglite

@@ -2,6 +2,7 @@
 #if defined(PG_MAIN)
 
 bool is_node = false;
+bool is_repl = true;
 
 EMSCRIPTEN_KEEPALIVE bool
 quote_all_identifiers = false;
@@ -51,21 +52,20 @@ void
 RePostgresSingleUserMain(int single_argc, char *single_argv[], const char *username)
 {
 
-puts("# 50: RePostgresSingleUserMain");
+printf("# 54: RePostgresSingleUserMain progname=%s for %s\n", progname, single_argv[0]);
     single_mode_feed = fopen(IDB_PIPE_SINGLE, "r");
 
     // should be template1.
     const char *dbname = NULL;
 
-    //leak progname = get_progname(single_argv[0]);
-printf("# 54: progname=%s for %s\n", progname, single_argv[0]);
-//	                InitStandaloneProcess(single_argv[0]);
-//	                InitializeGUCOptions();
+//  leak progname = get_progname(single_argv[0]);
+//	InitStandaloneProcess(single_argv[0]);
+//	InitializeGUCOptions();
 
     /* Parse command-line options. */
     process_postgres_switches(single_argc, single_argv, PGC_POSTMASTER, &dbname);
 
-printf("# 61: dbname=%s\n", dbname);
+printf("# 67: dbname=%s\n", dbname);
 
     LocalProcessControlFile(false);
 
@@ -318,30 +318,33 @@ puts("# 100");
 
     fclose(single_mode_feed);
 
-    puts("# 321: REPL(initdb-single):End " __FILE__ );
+    if (strlen(getenv("REPL")) && getenv("REPL")[0]=='Y') {
+        puts("# 321: REPL(initdb-single):End " __FILE__ );
 
-    /* now use stdin as source */
-    repl = true;
-    single_mode_feed = NULL;
+        /* now use stdin as source */
+        repl = true;
+        single_mode_feed = NULL;
 
-    force_echo = true;
-    if (!is_node) {
-        fprintf(stdout,"# now in webloop(RAF)\npg> %c\n", 4);
-        emscripten_set_main_loop( (em_callback_func)interactive_one, 0, 1);
+        force_echo = true;
+        if (!is_node) {
+            fprintf(stdout,"# now in webloop(RAF)\npg> %c\n", 4);
+            emscripten_set_main_loop( (em_callback_func)interactive_one, 0, 1);
+        } else {
+            puts("# 331: REPL(single after initdb):Begin(NORETURN)");
+            while (repl) { interactive_file(); }
+            exit(0);
+        }
+
+        // unreachable.
+
+        puts("# 338: REPL:End Raising a 'RuntimeError Exception' to halt program NOW");
+        {
+            void (*npe)() = NULL;
+            npe();
+        }
     } else {
-        puts("# 331: REPL(single after initdb):Begin(NORETURN)");
-        while (repl) { interactive_file(); }
-        exit(0);
+        puts("# no line-repl requested, exiting to keep runtime alive");
     }
-
-    // unreachable.
-
-    puts("# 338: REPL:End Raising a 'RuntimeError Exception' to halt program NOW");
-    {
-        void (*npe)() = NULL;
-        npe();
-    }
-
 
 }
 
@@ -764,7 +767,6 @@ exception_handler:
 	if (sigsetjmp(local_sigjmp_buf, 1) != 0)
 #endif
 	{
-        puts("paf-1472");
 		error_context_stack = NULL;
 		HOLD_INTERRUPTS();
 		disable_all_timeouts(false);	/* do first to avoid race condition */
@@ -804,26 +806,12 @@ exception_handler:
 	/*
 	 * Non-error queries loop here.
 	 */
-#if 0
-puts("# 808: REPL:Begin" __FILE__ );
-    if (is_node) {
-    	while (repl) {
-            interactive_file();
-            puts("\n");
-        }
-    } else {
-        fprintf(stdout,"pg> %c\n", 4);
-    	while (repl) {
-            interactive_one();
-    	}
-    }
-#else
+
 printf("# 821: hybrid loop:Begin CI=%s\n", getenv("CI") );
     fprintf(stdout,"pg> %c\n", 4);
 	while (repl && !proc_exit_inprogress) {
         interactive_one();
 	}
-#endif
     puts("\n\n# 827: REPL:End " __FILE__);
     abort();
 #if !defined(PG_INITDB_MAIN)
@@ -831,12 +819,10 @@ printf("# 821: hybrid loop:Begin CI=%s\n", getenv("CI") );
 #endif
 }
 
-
-
 #else
 
-
 extern bool is_node;
+extern bool is_repl;
 
 extern bool quote_all_identifiers;
 
@@ -869,55 +855,7 @@ pg_initdb() {
 
 
     fopen(WASM_PREFIX "/locale","r");
-/*
 
-    FILE *file;
-    FILE *file_current;
-
-    file = fopen(IDB_PIPE_FILE, "r");
-    file_current = fopen(IDB_PIPE_BOOT, "w");
-
-
-    int lines = 0;
-    int counter = 0;
-    int boot_end = 0;
-    int single_lines = 0;
-
-
-    char buf[FD_BUFFER_MAX];
-
-    while( fgets(&buf[0], FD_BUFFER_MAX, file) ) {
-        counter+= strlen(buf);
-        if (!boot_end && strlen(buf)) {
-            if (!strncmp(BOOT_END_MARK, (const char *)buf, 13)) {
-                boot_end = counter+strlen(BOOT_END_MARK);
-                fprintf(file_current, "%s", buf);
-                fclose(file_current);
-                // now it is single SQL mode.
-                file_current = fopen(IDB_PIPE_SINGLE, "w");
-//fprintf(file_current, "CHECKPOINT;\n");
-                printf("# initdb boot ends at char=%d line=%d\n", boot_end, lines);
-                continue;
-            }
-        }
-
-        lines++;
-        if (boot_end)
-            single_lines++;
-        if (strlen(buf) && (buf[0]=='#'))
-            continue;
-        fprintf(file_current, "%s", buf);
-        if ( (boot_end>0) && (single_lines>25) && (single_lines<40)) {
-            fprintf(stdout, "%s", buf);
-        }
-    }
-
-    fclose(file);
-    remove(IDB_PIPE_FILE);
-    fclose(file_current);
-
-    printf("initdb commands char=%d lines=%d\n", counter, lines);
-*/
 
     /* save stdin and use previous initdb output to feed boot mode */
     int saved_stdin = dup(STDIN_FILENO);
@@ -947,18 +885,7 @@ pg_initdb() {
         proc_exit(66);
     }
 
-/*
-EM_ASM({
-    const filename = "/tmp/initdb.single.txt";
-    const blob = new Blob([FS.readFile(filename)]);
-    const elem = window.document.createElement('a');
-    elem.href = window.URL.createObjectURL(blob, { oneTimeOnly: true });
-    elem.download = filename;
-    document.body.appendChild(elem);
-    elem.click();
-    document.body.removeChild(elem);
-});
-*/
+
     /* use previous initdb output to feed single mode */
     {
         puts("# restarting in single mode for initdb");
@@ -988,7 +915,6 @@ EM_ASM({
 
 
     if (optind>0) {
-        puts("# going into REPL mode");
         /* RESET getopt */
         optind = 1;
 
@@ -1010,78 +936,65 @@ EM_JS(int, is_web_env, (), {
 
 static void
 main_pre() {
-
-    is_node = !is_web_env();
+#if defined(__EMSCRIPTEN__)
+    EM_ASM({
+        globalThis.is_worker = (typeof WorkerGlobalScope !== 'undefined') && self instanceof WorkerGlobalScope;
+        globalThis.FD_BUFFER_MAX = $0;
+    }, FD_BUFFER_MAX);  /* ( global mem start / num fd max ) */
 
     if (is_node) {
     	setenv("ENVIRONMENT", "node" , 1);
         EM_ASM({
-            const is_worker = (typeof WorkerGlobalScope !== 'undefined') && self instanceof WorkerGlobalScope;
             console.warn("prerun(C-node) worker=", is_worker);
-            console.is_worker = is_worker ;
-            var window = { vm : Module };
-            window.test_data = [];
-            try {
-                window.vm.FS = FS;
-            } catch (x) {
-                console.warn("Access to FS disallowed");
-            }
+            globalThis.window = { };
+            Module['postMessage'] = function custom_postMessage(event) {
+                console.log("onCustomMessage:", event);
+            };
         });
+
     } else {
     	setenv("ENVIRONMENT", "web" , 1);
         EM_ASM({
-            const FD_BUFFER_MAX = $0;
-            const is_worker = (typeof WorkerGlobalScope !== 'undefined') && self instanceof WorkerGlobalScope;
             console.warn("prerun(C-web) worker=", is_worker);
-            console.is_worker = is_worker;
-
-            if (window.vm) {
-                console.log("ES6 module");
-            } else {
-                window.vm = Module;
-                console.log("Not using ES6 modules")
-            }
-
-            if (!is_worker) {
-                console.log("Running in main thread, faking onCustomMessage");
-                vm.postMessage = function custom_postMessage(event) {
-                    switch (event.type) {
-                        case "raw" :  {
-                            stringToUTF8( event.data, shm_rawinput, FD_BUFFER_MAX);
-                            break;
-                        }
-
-                        case "stdin" :  {
-                            stringToUTF8( event.data, 1, FD_BUFFER_MAX);
-                            break;
-                        }
-                        case "rcon" :  {
-                            stringToUTF8( event.data, shm_rcon, FD_BUFFER_MAX);
-                            break;
-                        }
-                        default : console.warn("custom_postMessage?", event);
-                    }
-                };
-            } else {
-                console.log("Main: running in a worker, setting onCustomMessage");
-                function onCustomMessage(event) {
-                    console.log("onCustomMessage:", event);
-                    // PUT SHM HERE
-                    //stringToUTF8( utf8encode(data), shm_rcon, $0);
-                };
-
-                Module['onCustomMessage'] = onCustomMessage;
-            };
-
-            try {
-                window.vm.FS = FS;
-            } catch (x) {
-                console.warn("Access to FS disallowed");
-            };
-
-        }, FD_BUFFER_MAX);  /* global mem start / num fd max */
-
+        });
+        is_repl = true;
     }
+
+    EM_ASM({
+        if (is_worker) {
+            console.log("Main: running in a worker, setting onCustomMessage");
+            function onCustomMessage(event) {
+                console.log("onCustomMessage:", event);
+                // PUT SHM HERE
+                //stringToUTF8( utf8encode(data), shm_rcon, FD_BUFFER_MAX);
+            };
+            Module['onCustomMessage'] = onCustomMessage;
+        } else {
+            console.log("Running in main thread, faking onCustomMessage");
+            Module['postMessage'] = function custom_postMessage(event) {
+                switch (event.type) {
+                    case "raw" :  {
+                        stringToUTF8( event.data, shm_rawinput, FD_BUFFER_MAX);
+                        break;
+                    }
+
+                    case "stdin" :  {
+                        stringToUTF8( event.data, 1, FD_BUFFER_MAX);
+                        break;
+                    }
+                    case "rcon" :  {
+                        stringToUTF8( event.data, shm_rcon, FD_BUFFER_MAX);
+                        break;
+                    }
+                    default : console.warn("custom_postMessage?", event);
+                }
+            };
+            if (!window.vm)
+                window.vm = Module;
+        };
+    });
+
+#endif
 	chdir("/");
     if (access("/etc/fstab", F_OK) == 0) {
         puts("WARNING: Node with real filesystem access");
@@ -1100,6 +1013,8 @@ main_pre() {
 	setenv("PGSYSCONFDIR", WASM_PREFIX, 1);
 	setenv("PGCLIENTENCODING", "UTF8", 1);
 
+    // default is to run a repl loop
+    setenv("REPL", "Y", 0);
 /*
  * we cannot run "locale -a" either from web or node. the file getenv("PGSYSCONFDIR") / "locale"
  * serves as popen output
@@ -1134,7 +1049,43 @@ TODO:
 */
     int ret=0;
     bool hadloop_error = false;
-
+    is_node = !is_web_env();
+    if (is_node) {
+        char key[256];
+        int i=0;
+// extra env is always after normal args
+        puts("# ============= extra argv dump ==================");
+        {
+            for (;i<argc;i++) {
+                const char *kv = argv[i];
+                for (int sk=0;sk<strlen(kv);sk++)
+                    if(kv[sk]=='=')
+                        goto extra_env;
+                printf("%s ", kv);
+            }
+        }
+extra_env:;
+        puts("\n# ============= arg->env dump ==================");
+        {
+            for (;i<argc;i++) {
+                const char *kv = argv[i];
+                for (int sk=0;sk<strlen(kv);sk++) {
+                    if (sk>255) {
+                        puts("buffer overrun on extra env at:");
+                        puts(kv);
+                        continue;
+                    }
+                    if (kv[sk]=='=') {
+                        memcpy(key, kv, sk);
+                        key[sk] = 0;
+                        printf("%s='%s'\n", &key, &kv[sk+1]);
+                        setenv(key, &kv[sk+1], 1);
+                    }
+                }
+            }
+        }
+        puts("\n# =========================================");
+    }
 
 	argv[0] = strdup(WASM_PREFIX "/bin/postgres");
 
@@ -1182,6 +1133,10 @@ TODO:
 	    mkdirp(PGDB "/pg_logical/mappings");
 
     }
+
+is_repl = strlen(getenv("REPL")) && getenv("REPL")[0]=='Y';
+
+if (is_repl) {
     if (!hadloop_error) {
 
 	    /*
@@ -1297,7 +1252,11 @@ TODO:
         PostgresSingleUserMain(argc, argv, strdup( getenv("PGUSER")));
     }
     puts("# 1056: " __FILE__);
+
     emscripten_force_exit(ret);
+} else {
+    whereToSendOutput = DestNone;
+}
 	return ret;
 }
 
