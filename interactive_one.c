@@ -512,10 +512,11 @@ incoming:
     #include "pg_proto.c"
 
     if (is_wire) { //whereToSendOutput == DestRemote) {
-        ReadyForQuery(DestRemote);
         cma_wsize = SOCKET_DATA;
         printf("# exec[%d]\n", SOCKET_DATA);
         if (SOCKET_DATA>0) {
+            puts("# 518: adding RFQ");
+            ReadyForQuery(DestRemote);
             cma_wsize = SOCKET_DATA;
             if (SOCKET_FILE) {
                 fclose(SOCKET_FILE);

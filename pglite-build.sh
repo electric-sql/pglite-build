@@ -10,4 +10,5 @@ fi
 . /opt/python-wasm-sdk/wasm32-bi-emscripten-shell.sh
 
 cd pglite/packages/pglite
+npm install
 npm run build

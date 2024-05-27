@@ -1,5 +1,5 @@
 --- postgresql-16.2/src/backend/libpq/pqcomm.c	2024-02-05 22:41:37.000000000 +0100
-+++ postgresql-16.2-wasm/src/backend/libpq/pqcomm.c	2024-05-27 14:16:27.630464554 +0200
++++ postgresql-16.2-wasm/src/backend/libpq/pqcomm.c	2024-05-27 15:49:48.907899517 +0200
 @@ -123,8 +123,12 @@
  static int	PqSendBufferSize;	/* Size send buffer */
  static int	PqSendPointer;		/* Next index to store a byte in PqSendBuffer */
@@ -22,7 +22,7 @@
  static void socket_comm_reset(void);
  static void socket_close(int code, Datum arg);
  static void socket_set_nonblocking(bool nonblocking);
-@@ -146,11 +151,44 @@
+@@ -146,10 +151,43 @@
  static void socket_putmessage_noblock(char msgtype, const char *s, size_t len);
  static int	internal_putbytes(const char *s, size_t len);
  static int	internal_flush(void);
@@ -47,7 +47,7 @@
 +    puts(" ******************************** wasm_putmessage");
 +    return 0;
 +}
-+
+ 
 +static bool wasm_is_send_pending(void) {
 +    puts(" ******************************** wasm_is_send_pending");
 +    return false;
@@ -55,8 +55,8 @@
 +static void wasm_putmessage_noblock(char msgtype, const char *s, size_t len) {
 +    puts(" ******************************** wasm_putmessage_noblock");
 +}
- 
- static const PQcommMethods PqCommSocketMethods = {
++
++static const PQcommMethods PqCommSocketMethods = {
 +	wasm_comm_reset,
 +	wasm_flush,
 +	wasm_flush_if_writable,
@@ -65,10 +65,9 @@
 +    wasm_putmessage_noblock
 +};
 +#else
-+static const PQcommMethods PqCommSocketMethods = {
+ static const PQcommMethods PqCommSocketMethods = {
  	socket_comm_reset,
  	socket_flush,
- 	socket_flush_if_writable,
 @@ -158,6 +196,10 @@
  	socket_putmessage,
  	socket_putmessage_noblock
@@ -117,7 +116,7 @@
  void
  pq_startmsgread(void)
  {
-@@ -1163,7 +1217,21 @@
+@@ -1163,7 +1217,22 @@
  		ereport(FATAL,
  				(errcode(ERRCODE_PROTOCOL_VIOLATION),
  				 errmsg("terminating connection because protocol synchronization was lost")));
@@ -127,6 +126,7 @@
 +        PqRecvLength = cma_rsize;
 +        PqRecvBuffer = (char*)0x1;
 +
++        PqSendPointer = 0;
 +        PqSendBuffer_save = PqSendBuffer;
 +        PqSendBuffer = 2 + (char*)(cma_rsize);
 +        PqSendBufferSize = (64*1024*1024) - (int)(&PqSendBuffer[0]);
@@ -140,7 +140,7 @@
  	PqCommReadingMsg = true;
  }
  
-@@ -1286,9 +1354,60 @@
+@@ -1286,9 +1355,64 @@
  
  	return 0;
  }
@@ -192,8 +192,12 @@
  
  static int
 +internal_flush(void) {
-+    puts("# 1355: flush");
++if (cma_rsize) {
++    puts("#1406: no flush for raw wire");
++} else {
++    puts("# 1408: flush");
 +	PqSendStart = PqSendPointer = 0;
++}
 +	return 0;
 +}
 +#else
@@ -201,7 +205,7 @@
  internal_putbytes(const char *s, size_t len)
  {
  	size_t		amount;
-@@ -1407,7 +1526,7 @@
+@@ -1407,7 +1531,7 @@
  	PqSendStart = PqSendPointer = 0;
  	return 0;
  }
