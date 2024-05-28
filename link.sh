@@ -68,14 +68,26 @@ PG_L="$PG_L -L../../src/interfaces/ecpg/ecpglib ../../src/interfaces/ecpg/ecpgli
 
 
 # ? -sLZ4=1  -sENVIRONMENT=web
-EMCC_WEB="-sNO_EXIT_RUNTIME=1 -sFORCE_FILESYSTEM=1  --shell-file $GITHUB_WORKSPACE/repl.html"
+# -sSINGLE_FILE  => Uncaught SyntaxError: Cannot use 'import.meta' outside a module (at postgres.html:1:6033)
+# -sENVIRONMENT=web => XHR
+EMCC_WEB="-sNO_EXIT_RUNTIME=1 -sFORCE_FILESYSTEM=1"
+
+# classic
+MODULE="-sINVOKE_RUN=0 --shell-file /data/git/pglite-build/repl-nomod.html"
+
+MODULE="-sMODULARIZE=0 -sEXPORT_ES6=0 --shell-file /data/git/pglite-build/repl-nomod.html"
+
+# es6
+MODULE="-sMODULARIZE=1 -sEXPORT_ES6=1 -sEXPORT_NAME=Module --shell-file ${GITHUB_WORKSPACE}/repl.html"
+
+# closure -sSIMPLE_OPTIMIZATION
 
 emcc $EMCC_WEB -fPIC $CDEBUG -sMAIN_MODULE=1 \
  -D__PYDK__=1 -DPREFIX=${PREFIX} \
  -sTOTAL_MEMORY=1GB -sSTACK_SIZE=4MB -sALLOW_TABLE_GROWTH -sALLOW_MEMORY_GROWTH -sGLOBAL_BASE=100MB \
- -sMODULARIZE=1 -sEXPORT_ES6=1 -sEXPORT_NAME=Module -sEXPORTED_RUNTIME_METHODS=FS \
- -sEXPORTED_FUNCTIONS=@$GITHUB_WORKSPACE/exports.txt \
- --use-preload-plugins \
+  $MODULE -sERROR_ON_UNDEFINED_SYMBOLS \
+ -sEXPORTED_RUNTIME_METHODS=FS,setValue,getValue,stringToNewUTF8,stringToUTF8OnStack,ccall,cwrap \
+ -sEXPORTED_FUNCTIONS=_main,_getenv,_setenv,_interactive_one,_interactive_write,_interactive_read \
  --preload-file ${PREFIX}/share/postgresql@${PREFIX}/share/postgresql \
  --preload-file ${PREFIX}/lib@${PREFIX}/lib \
  --preload-file ${PREFIX}/password@${PREFIX}/password \
@@ -83,12 +95,17 @@ emcc $EMCC_WEB -fPIC $CDEBUG -sMAIN_MODULE=1 \
  --preload-file ${PREFIX}/bin/initdb@${PREFIX}/bin/initdb \
  -o postgres.html $PG_O $PG_L
 
+mv -v postgres.* ${WEBROOT}/
+
+
+
+mv postgres.* index.html ${WEBROOT}/
+
 
 #mv postgres.html index.html
 echo "<html></html>" > index.html
-cp $GITHUB_WORKSPACE/vtx.js ${WEBROOT}/
-mv postgres.* index.html ${WEBROOT}/
 
+cp $GITHUB_WORKSPACE/vtx.js ${WEBROOT}/
 du -hs ${WEBROOT}/postgres.*
 
 popd
