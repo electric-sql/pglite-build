@@ -18,7 +18,7 @@ jobs:
   build:
     runs-on: ubuntu-22.04
     env:
-        SDK_VERSION: 3.1.60.3bi
+        SDK_VERSION: 3.1.61.0bi
         SDK_ARCHIVE: python3.12-wasm-sdk-Ubuntu-22.04.tar.lz4
         SDKROOT: /opt/python-wasm-sdk
         SYS_PYTHON: /usr/bin/python3
@@ -41,9 +41,10 @@ jobs:
       working-directory: /
 
 
-    - name: Build PG WASM via emsdk
+    - name: Build postgres, pgvector WASM via emsdk
       run: |
-        bash ./node-build.sh
+        bash ./node-build.sh emsdk pgvector test
+
 
     - name: Build PGlite via npm
       run: |

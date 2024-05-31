@@ -379,6 +379,9 @@ END
     # wip
     mv -vf ./src/bin/psql/psql.wasm ${PREFIX}/bin/
     mv -vf  ./src/bin/pg_dump/pg_restore.wasm ./src/bin/pg_dump/pg_dump.wasm ./src/bin/pg_dump/pg_dumpall.wasm ${PREFIX}/bin/
+    mv -vf ./src/bin/pg_config/pg_config.wasm ${PREFIX}/bin/
+    mv /tmp/pglite/bin/pg_config /tmp/pglite/bin/pg_config.js
+    chmod +x ${PREFIX}/bin/pg_config
 
     # ok
 	mv -vf ./src/bin/pg_resetwal/pg_resetwal.wasm  ./src/bin/initdb/initdb.wasm ./src/backend/postgres.wasm ./src/backend/postgres.map ${PREFIX}/bin/
@@ -386,6 +389,10 @@ END
 	mv -vf ./src/bin/pg_resetwal/pg_resetwal ${PREFIX}/bin/pg_resetwal.js
 	mv -vf ./src/backend/postgres ${PREFIX}/bin/postgres.js
 
+    cat > ${PREFIX}/bin/pg_config <<END
+#!/bin/bash
+node ${PREFIX}/bin/pg_config.js \$@
+END
 
     cat  > ${PREFIX}/postgres <<END
 #!/bin/bash
@@ -407,6 +414,9 @@ END
 
     chmod +x ${PREFIX}/postgres ${PREFIX}/bin/postgres
 	chmod +x ${PREFIX}/initdb ${PREFIX}/bin/initdb
+
+    # for extensions building
+    chmod +x ${PREFIX}/bin/pg_config
 
 	echo "initdb for PGDATA=${PGDATA} "
 
@@ -483,6 +493,19 @@ END
     chmod +x $PREFIX/*sh
 fi
 
+if echo "$@" |grep pgvector
+then
+    shift
+    pushd ..
+    [ -d pgvector ] || git clone --no-tags --depth 1 --single-branch --branch master https://github.com/pgvector/pgvector
+    pushd pgvector
+
+    # path for wasm-shared already set to (pwd:pg source dir)/bin
+    # OPTFLAGS="" turns off arch optim.
+    PG_CONFIG=${PREFIX}/bin/pg_config emmake make OPTFLAGS="" install
+    popd
+    popd
+fi
 
 # ================= run test (node) ===========================
 

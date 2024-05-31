@@ -16,6 +16,6 @@ cd postgresql-16.2
 
 cat ../postgresql-16.2-wasm.patchset/*diff | patch -p1
 
-DEBUG=true PREFIX=/tmp/pglite ../wasm-build.sh emsdk test
+DEBUG=false PREFIX=/tmp/pglite ../wasm-build.sh $@
 
 
