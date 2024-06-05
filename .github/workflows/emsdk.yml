@@ -18,7 +18,7 @@ jobs:
   build:
     runs-on: ubuntu-22.04
     env:
-        SDK_VERSION: 3.1.61.0bi
+        SDK_VERSION: 3.1.62.0bi
         SDK_ARCHIVE: python3.12-wasm-sdk-Ubuntu-22.04.tar.lz4
         SDKROOT: /opt/python-wasm-sdk
         SYS_PYTHON: /usr/bin/python3
@@ -41,14 +41,21 @@ jobs:
       working-directory: /
 
 
-    - name: Build postgres, pgvector WASM via emsdk
+    - name: Build postgres WASM via emsdk
       run: |
-        bash ./node-build.sh emsdk pgvector test
+        bash ./cibuild.sh
 
+    - name: Build pgvector
+      run: |
+        bash ./cibuild.sh pgvector
+
+#    - name: Build duckdb+quack
+#      run: |
+#        bash ./cibuild.sh quack
 
     - name: Build PGlite via npm
       run: |
-        bash ./pglite-build.sh
+        bash ./cibuild.sh pglite
 
     - name: Upload sdk to Github artifacts
       uses: actions/upload-artifact@v4.3.1

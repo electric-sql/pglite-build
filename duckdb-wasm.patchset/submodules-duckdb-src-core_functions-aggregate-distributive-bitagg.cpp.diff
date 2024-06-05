@@ -1,0 +1,28 @@
+--- duckdb-wasm/submodules/duckdb/src/core_functions/aggregate/distributive/bitagg.cpp	2024-06-05 23:12:32.042226989 +0200
++++ duckdb-pglite/submodules/duckdb/src/core_functions/aggregate/distributive/bitagg.cpp	2024-06-05 08:25:57.963388434 +0200
+@@ -53,10 +53,10 @@
+ 	template <class INPUT_TYPE, class STATE, class OP>
+ 	static void Operation(STATE &state, const INPUT_TYPE &input, AggregateUnaryInput &) {
+ 		if (!state.is_set) {
+-			OP::template Assign(state, input);
++			OP::template Assign<>(state, input);
+ 			state.is_set = true;
+ 		} else {
+-			OP::template Execute(state, input);
++			OP::template Execute<>(state, input);
+ 		}
+ 	}
+ 
+@@ -79,10 +79,10 @@
+ 		}
+ 		if (!target.is_set) {
+ 			// target is NULL, use source value directly.
+-			OP::template Assign(target, source.value);
++			OP::template Assign<>(target, source.value);
+ 			target.is_set = true;
+ 		} else {
+-			OP::template Execute(target, source.value);
++			OP::template Execute<>(target, source.value);
+ 		}
+ 	}
+ 

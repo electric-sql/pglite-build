@@ -1,0 +1,20 @@
+--- duckdb-wasm/submodules/duckdb/src/core_functions/aggregate/distributive/minmax.cpp	2024-06-05 23:12:32.043226976 +0200
++++ duckdb-pglite/submodules/duckdb/src/core_functions/aggregate/distributive/minmax.cpp	2024-06-05 08:25:57.963388434 +0200
+@@ -487,7 +487,7 @@
+ 			if (!state.value) {
+ 				Assign(state, input, i);
+ 			} else {
+-				OP::template Execute(state, input, i, count);
++				OP::template Execute<>(state, input, i, count);
+ 			}
+ 		}
+ 	}
+@@ -499,7 +499,7 @@
+ 		} else if (!target.value) {
+ 			Assign(target, *source.value, 0);
+ 		} else {
+-			OP::template Execute(target, *source.value, 0, 1);
++			OP::template Execute<>(target, *source.value, 0, 1);
+ 		}
+ 	}
+ 

@@ -1,7 +1,5 @@
 #!/bin/bash
 
-export PREFIX=$PGROOT
-
 WEBROOT=${WEBROOT:-/tmp/sdk}
 mkdir -p $WEBROOT
 
@@ -19,20 +17,20 @@ pushd src
     PATCH="-DPATCH_MAIN=$GITHUB_WORKSPACE/pg_main.c $PATCH"
     PATCH="-DPATCH_PLUGIN=$GITHUB_WORKSPACE/pg_plugin.h  $PATCH"
 
-    emcc -sFORCE_FILESYSTEM -DPG_INITDB_MAIN=1 -DPREFIX=${PREFIX} -Iinclude -Iinterfaces/libpq -c -o ../pg_initdb.o ./bin/initdb/initdb.c
+    emcc -sFORCE_FILESYSTEM -DPG_INITDB_MAIN=1 -DPREFIX=${PGROOT} -Iinclude -Iinterfaces/libpq -c -o ../pg_initdb.o ./bin/initdb/initdb.c
 
     rm pg_initdb.o backend/main/main.o ./backend/tcop/postgres.o ./backend/utils/init/postinit.o
 
     #
-    emcc -DPG_LINK_MAIN=1 -DPREFIX=${PREFIX} $PATCH \
+    emcc -DPG_LINK_MAIN=1 -DPREFIX=${PGROOT} $PATCH \
      -Iinclude -Iinterfaces/libpq -c -o ./backend/tcop/postgres.o ./backend/tcop/postgres.c
 
-    EMCC_CFLAGS="-DPREFIX=${PREFIX} -DPG_INITDB_MAIN=1 -DPATCH_PLUGIN=$GITHUB_WORKSPACE/pg_plugin.h -DPATCH_MAIN=$GITHUB_WORKSPACE/pg_main.c" emmake make backend/main/main.o backend/utils/init/postinit.o
+    EMCC_CFLAGS="-DPREFIX=${PGROOT} -DPG_INITDB_MAIN=1 -DPATCH_PLUGIN=$GITHUB_WORKSPACE/pg_plugin.h -DPATCH_MAIN=$GITHUB_WORKSPACE/pg_main.c" emmake make backend/main/main.o backend/utils/init/postinit.o
 popd
 
 
 echo "========================================================"
-echo -DPREFIX=${PREFIX} $PATCH
+echo -DPREFIX=${PGROOT} $PATCH
 file pg_initdb.o src/backend/main/main.o src/backend/tcop/postgres.o src/backend/utils/init/postinit.o
 echo "========================================================"
 
@@ -47,7 +45,7 @@ pushd src/backend
 cp -vf ../../src/interfaces/ecpg/ecpglib/libecpg.so ${WEBROOT}/
 
 
-echo " ---------- building web test PREFIX=$PREFIX ------------"
+echo " ---------- building web test PREFIX=$PGROOT ------------"
 du -hs ${WEBROOT}/libpg?.*
 
 PG_O="../../src/fe_utils/string_utils.o ../../src/common/logging.o \
@@ -65,6 +63,7 @@ PG_L="-L../../src/port -L../../src/common \
  ../../src/common/libpgcommon_srv.a ../../src/port/libpgport_srv.a"
 
 PG_L="$PG_L -L../../src/interfaces/ecpg/ecpglib ../../src/interfaces/ecpg/ecpglib/libecpg.so"
+# /tmp/pglite/lib/postgresql/libduckdb.so"
 
 
 # ? -sLZ4=1  -sENVIRONMENT=web
@@ -83,16 +82,16 @@ MODULE="-sMODULARIZE=1 -sEXPORT_ES6=1 -sEXPORT_NAME=Module --shell-file ${GITHUB
 # closure -sSIMPLE_OPTIMIZATION
 
 emcc $EMCC_WEB -fPIC $CDEBUG -sMAIN_MODULE=1 \
- -D__PYDK__=1 -DPREFIX=${PREFIX} \
+ -D__PYDK__=1 -DPREFIX=${PGROOT} \
  -sTOTAL_MEMORY=1GB -sSTACK_SIZE=4MB -sALLOW_TABLE_GROWTH -sALLOW_MEMORY_GROWTH -sGLOBAL_BASE=100MB \
   $MODULE -sERROR_ON_UNDEFINED_SYMBOLS \
  -sEXPORTED_RUNTIME_METHODS=FS,setValue,getValue,stringToNewUTF8,stringToUTF8OnStack,ccall,cwrap \
  -sEXPORTED_FUNCTIONS=_main,_getenv,_setenv,_interactive_one,_interactive_write,_interactive_read \
- --preload-file ${PREFIX}/share/postgresql@${PREFIX}/share/postgresql \
- --preload-file ${PREFIX}/lib@${PREFIX}/lib \
- --preload-file ${PREFIX}/password@${PREFIX}/password \
- --preload-file ${PREFIX}/bin/postgres@${PREFIX}/bin/postgres \
- --preload-file ${PREFIX}/bin/initdb@${PREFIX}/bin/initdb \
+ --preload-file ${PGROOT}/share/postgresql@${PGROOT}/share/postgresql \
+ --preload-file ${PGROOT}/lib@${PGROOT}/lib \
+ --preload-file ${PGROOT}/password@${PGROOT}/password \
+ --preload-file ${PGROOT}/bin/postgres@${PGROOT}/bin/postgres \
+ --preload-file ${PGROOT}/bin/initdb@${PGROOT}/bin/initdb \
  -o postgres.html $PG_O $PG_L
 
 mv -v postgres.* ${WEBROOT}/

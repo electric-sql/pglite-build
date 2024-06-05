@@ -1,0 +1,13 @@
+--- duckdb-wasm/submodules/benchmark/src/perf_counters.h	2024-06-05 23:12:31.493234424 +0200
++++ duckdb-pglite/submodules/benchmark/src/perf_counters.h	2024-06-05 08:01:58.069912025 +0200
+@@ -26,7 +26,9 @@
+ #ifndef BENCHMARK_OS_WINDOWS
+ #include <unistd.h>
+ #endif
+-
++#if defined(__EMSCRIPTEN__)
++#define ClobberMemory()
++#endif
+ namespace benchmark {
+ namespace internal {
+ 

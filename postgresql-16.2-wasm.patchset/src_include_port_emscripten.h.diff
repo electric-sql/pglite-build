@@ -1,6 +1,6 @@
 --- postgresql-16.2/src/include/port/emscripten.h	2024-04-30 08:02:57.615354846 +0200
-+++ postgresql-16.2-wasm/src/include/port/emscripten.h	2024-05-20 17:40:06.840860779 +0200
-@@ -0,0 +1,330 @@
++++ postgresql-16.2-wasm/src/include/port/emscripten.h	2024-06-03 16:06:04.667488222 +0200
+@@ -0,0 +1,333 @@
 +/* src/include/port/emscripten.h */
 +
 +#ifndef I_EMSCRIPTEN
@@ -10,7 +10,10 @@
 +#include <stdbool.h>
 +extern PGDLLIMPORT bool fe_utils_quote_all_identifiers;
 +
++#if defined(__cplusplus)
++#else
 +#include <emscripten.h>
++#endif
 +
 +/*
 + * https://github.com/electric-sql/postgres-wasm/pull/1/files#diff-6e542ba2eb1d83ef90e65cdc0912b51a295184701c7e3bd236937c43c4cac4b9R63

@@ -1,0 +1,11 @@
+--- duckdb-wasm/submodules/duckdb/src/execution/window_executor.cpp	2024-06-05 23:12:32.059226759 +0200
++++ duckdb-pglite/submodules/duckdb/src/execution/window_executor.cpp	2024-06-05 08:25:57.964388421 +0200
+@@ -193,7 +193,7 @@
+ template <typename T, typename OP>
+ struct OperationCompare : public std::function<bool(T, T)> {
+ 	inline bool operator()(const T &lhs, const T &val) const {
+-		return OP::template Operation(lhs, val);
++		return OP::template Operation<>(lhs, val);
+ 	}
+ };
+ 
