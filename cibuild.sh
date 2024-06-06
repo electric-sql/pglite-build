@@ -10,27 +10,52 @@ PGDATA=${PGROOT}/base
 
 PGUSER=postgres
 
-# warnings for indexes
-PGFIXES="-d 1 -P -B 16 -S 512 -f siobtnmh"
+export PGPASS=${PGPASS:-password}
+export CRED="-U $PGUSER --pwfile=${PGROOT}/password"
 
-PGFIXES="-d 1 -B 16 -S 512 -f siobtnmh"
-
-
-# --data-checksums needs a value
-CKSUM_B=""
-CKSUM_S=""
-
-
-CRED="-U $PGUSER --pwfile=${PGROOT}/password"
 
 # exit on error
 EOE=false
 
-# -c wal_segment_size=16MB
+# the default is a user writeable path.
+if mkdir -p ${PGROOT}
+then
+    echo "checking for valid prefix ${PGROOT}"
+else
+    sudo mkdir -p ${PGROOT}
+    sudo chown $(whoami) ${PGROOT}
+fi
 
-mkdir -p ${PGROOT}
+if [ -f ${PGROOT}/password ]
+then
+    echo "not changing db password"
+else
+    echo ${PGPASS:-password} > ${PGROOT}/password
+fi
 
-cat > ${PGROOT}/pgopts.sh <<END
+
+# default to web/release size optim.
+if $DEBUG
+then
+    echo "debug not support on web build"
+    exit 80
+else
+    export PGDEBUG=""
+    export CDEBUG="-g0 -Os"
+fi
+
+# setup compiler+node
+. /opt/python-wasm-sdk/wasm32-bi-emscripten-shell.sh
+
+
+
+if [ -f ${WEBROOT}/postgres.js ]
+then
+    echo using current from ${WEBROOT}
+else
+
+    # store all pg options that have impact on cmd line initdb/boot
+    cat > ${PGROOT}/pgopts.sh <<END
 export PGOPTS="\\
  -c log_checkpoints=false \\
  -c dynamic_shared_memory_type=posix \\
@@ -43,13 +68,10 @@ export PGOPTS="\\
  -c shared_buffers=128MB"
 END
 
-. ${PGROOT}/pgopts.sh
+    . ${PGROOT}/pgopts.sh
 
-
-
-# make sure no non-mvp feature gets in.
-
-cat > ${PGROOT}/config.site <<END
+    # make sure no non-mvp feature gets in.
+    cat > ${PGROOT}/config.site <<END
 pgac_cv_sse42_crc32_intrinsics_=no
 pgac_cv_sse42_crc32_intrinsics__msse4_2=no
 pgac_sse42_crc32_intrinsics=no
@@ -58,67 +80,70 @@ ac_cv_search_sem_open=no
 END
 
 
-
-# workaround no "locale -a" for Node.
-
-cat > ${PGROOT}/locale <<END
+    # workaround no "locale -a" for Node.
+    cat > ${PGROOT}/locale <<END
 C
 C.UTF-8
 POSIX
 UTF-8
 END
 
-
-
-# default to web/release
-if $DEBUG
-then
-    echo "debug not support on web build"
-    exit 77
-else
-    export PGDEBUG=""
-    export CDEBUG="-g0 -Os"
-fi
-
-# setup compiler+node
-. /opt/python-wasm-sdk/wasm32-bi-emscripten-shell.sh
-
-
-if [ -f ${WEBROOT}/postgres.js ]
-then
-    echo using current from ${WEBROOT}
-else
     . cibuild-pg162.sh
+
+    rm ${GITHUB_WORKSPACE}/postgresql 2>/dev/null
+    # to get wasm-shared link tool in the path for extensions building.
+    ln -s ${GITHUB_WORKSPACE}/postgresql-16.2 ${GITHUB_WORKSPACE}/postgresql
 fi
+
+export PATH=${GITHUB_WORKSPACE}/postgresql/bin:$PATH
+
 
 if echo "$@"|grep pglite
 then
-    if [ -d pglite ]
-    then
-        echo using local
-    else
-        git clone --no-tags --depth 1 --single-branch --branch pglite-build https://github.com/electric-sql/pglite pglite
-    fi
+    . cibuild-pglite.sh
+fi
 
-    pushd pglite/packages/pglite
-    npm install
-    npm run build
+
+if echo "$@"|grep linkweb
+then
+    # build web version
+    pushd postgresql
+    . $GITHUB_WORKSPACE/link.sh
+
+    if $CI
+    then
+        mv $WEBROOT/* /tmp/sdk/
+    fi
+    popd
+fi
+
+
+if echo "$@"|grep pgvector
+then
+    [ -d pgvector ] || git clone --no-tags --depth 1 --single-branch --branch master https://github.com/pgvector/pgvector
+    pushd pgvector
+    # path for wasm-shared already set to (pwd:pg source dir)/bin
+    # OPTFLAGS="" turns off arch optim.
+    PG_CONFIG=${PGROOT}/bin/pg_config emmake make OPTFLAGS="" install
     popd
 
-    #> pglite/packages/pglite/release/postgres.js
-    cp ${WEBROOT}/postgres.{js,data,wasm} pglite/packages/pglite/release/
-    cp ${WEBROOT}/libecpg.so pglite/packages/pglite/release/postgres.so
-    mv pglite/packages/pglite/release/postgres.js pglite/packages/pglite/release/pgbuild.js
-
-    cat > pglite/packages/pglite/release/share.js <<END
-
-    function loadPgShare(module, require) {
-        console.warn("share.js: loadPgShare");
-    }
-
-    export default loadPgShare;
-END
-
-    cat pgbuild.js > pglite/packages/pglite/release/postgres.js
-
 fi
+
+
+if echo "$@"|grep quack
+then
+    echo WIP
+    PG_LINK=em++
+fi
+
+
+
+
+
+
+
+
+
+
+
+

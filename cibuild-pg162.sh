@@ -29,13 +29,6 @@
     echo "  ==== building wasm MVP:$MVP Debug=${PGDEBUG} with opts : $@  == "
 
 
-    if [ -f ${PGROOT}/password ]
-    then
-        echo "not changing db password"
-    else
-        echo password > ${PGROOT}/password
-    fi
-
     if [ -f ${PGROOT}/config.cache.emsdk ]
     then
         echo "re-using config cache file from ${PGROOT}/config.cache.emsdk"
@@ -87,26 +80,7 @@ END
 #!/bin/bash
 echo "[\$(pwd)] $0 \$@" >> /tmp/disable-shared.log
 # shared build
-emcc -DPREFIX=${PGROOT} -shared -sSIDE_MODULE=1 \$@ -Wno-unused-function
-exit 0
-# fake linker
-for arg do
-    shift
-    if [ "\$arg" = "-o" ]
-    then
-        continue
-    fi
-    if echo "\$arg" | grep -q ^-
-    then
-        continue
-    fi
-    if echo "\$arg" | grep -q \\\\.o$
-    then
-        continue
-    fi
-    set -- "\$@" "\$arg"
-done
-touch \$@
+\${PG_LINK:-emcc} -DPREFIX=${PGROOT} -shared -sSIDE_MODULE=1 \$@ -Wno-unused-function
 END
 
     # FIXME: workaround for /conversion_procs/ make
@@ -213,7 +187,6 @@ END
     # for extensions building
     chmod +x ${PGROOT}/bin/pg_config
 
-    # build web version
-    . $GITHUB_WORKSPACE/link.sh
+
 
     popd

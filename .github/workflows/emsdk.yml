@@ -45,6 +45,10 @@ jobs:
       run: |
         bash ./cibuild.sh
 
+    - name: link postgres WASM for web
+      run: |
+	bash ./cibuild.sh linkweb
+
     - name: Build pgvector
       run: |
         bash ./cibuild.sh pgvector
@@ -53,7 +57,7 @@ jobs:
 #      run: |
 #        bash ./cibuild.sh quack
 
-    - name: Build PGlite via npm
+    - name: Build PGlite and pack extensions via npm
       run: |
         bash ./cibuild.sh pglite
 
