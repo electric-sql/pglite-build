@@ -1,4 +1,14 @@
 
+    cat > pglite/packages/pglite/release/share.js <<END
+
+    function loadPgShare(module, require) {
+        console.warn("share.js: loadPgShare");
+    }
+
+    export default loadPgShare;
+END
+
+
     pushd pglite/packages/pglite
     npm install
     npm run build
@@ -14,15 +24,6 @@
         cp ${WEBROOT}/libecpg.so pglite/packages/pglite/release/postgres.so
     fi
     mv pglite/packages/pglite/release/postgres.js pglite/packages/pglite/release/pgbuild.js
-
-    cat > pglite/packages/pglite/release/share.js <<END
-
-    function loadPgShare(module, require) {
-        console.warn("share.js: loadPgShare");
-    }
-
-    export default loadPgShare;
-END
 
     cat pgbuild.js > pglite/packages/pglite/release/postgres.js
 
