@@ -117,6 +117,15 @@ then
 fi
 
 
+# to get  pglite/postgres populated by web build
+rmdir pglite/postgres pglite 2>/dev/null
+if [ -d pglite ]
+then
+    echo using local
+else
+    git clone --no-tags --depth 1 --single-branch --branch pglite-build https://github.com/electric-sql/pglite pglite
+fi
+
 
 # run this last so all extensions files can be packaged
 
