@@ -98,30 +98,24 @@ fi
 export PATH=${GITHUB_WORKSPACE}/postgresql/bin:$PATH
 
 
-if echo "$@"|grep pglite
+if echo "$@"|grep -q vector
 then
-    . cibuild-pglite.sh
-fi
-
-
-
-if echo "$@"|grep pgvector
-then
+    echo "buidling extension : vector"
     [ -d pgvector ] || git clone --no-tags --depth 1 --single-branch --branch master https://github.com/pgvector/pgvector
     pushd pgvector
     # path for wasm-shared already set to (pwd:pg source dir)/bin
     # OPTFLAGS="" turns off arch optim.
     PG_CONFIG=${PGROOT}/bin/pg_config emmake make OPTFLAGS="" install
     popd
-
 fi
 
 
 if echo "$@"|grep quack
 then
-    echo WIP
-    PG_LINK=em++
+    echo "buidling extension : quack"
+    PG_LINK=em++ echo WIP
 fi
+
 
 
 # run this last so all extensions files can be packaged
@@ -143,7 +137,12 @@ then
 fi
 
 
+# pglite use web build files.
 
+if echo "$@"|grep -q pglite
+then
+    . cibuild-pglite.sh
+fi
 
 
 
