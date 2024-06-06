@@ -47,9 +47,9 @@ jobs:
 
     - name: Build pgvector
       run: |
-        bash ./cibuild.sh pgvector
+        bash ./cibuild.sh vector
 
-#    - name: Build duckdb+quack
+#    - name: Build duckdb+pg_quack
 #      run: |
 #        bash ./cibuild.sh quack
 
