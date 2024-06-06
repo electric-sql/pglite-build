@@ -94,17 +94,17 @@ emcc $EMCC_WEB -fPIC $CDEBUG -sMAIN_MODULE=1 \
  --preload-file ${PGROOT}/bin/initdb@${PGROOT}/bin/initdb \
  -o postgres.html $PG_O $PG_L
 
-mv -v postgres.* ${WEBROOT}/
+if $CI
+then
+    mv postgres.html index.html
+else
+    [ -f "index.html" ] || echo "<html></html>" > index.html
+fi
 
-
-
-mv postgres.* index.html ${WEBROOT}/
-
-
-#mv postgres.html index.html
-echo "<html></html>" > index.html
+mv -v postgres.* index.html ${WEBROOT}/
 
 cp $GITHUB_WORKSPACE/vtx.js ${WEBROOT}/
-du -hs ${WEBROOT}/postgres.*
+
+du -hs ${WEBROOT}/*
 
 popd

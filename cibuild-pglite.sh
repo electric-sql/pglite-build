@@ -11,8 +11,14 @@
     popd
 
     #> pglite/packages/pglite/release/postgres.js
-    cp ${WEBROOT}/postgres.{js,data,wasm} pglite/packages/pglite/release/
-    cp ${WEBROOT}/libecpg.so pglite/packages/pglite/release/postgres.so
+    if $CI
+    then
+        cp /tmp/sdk/postgres.{js,data,wasm} pglite/packages/pglite/release/
+        cp /tmp/sdk/libecpg.so pglite/packages/pglite/release/postgres.so
+    else
+        cp ${WEBROOT}/postgres.{js,data,wasm} pglite/packages/pglite/release/
+        cp ${WEBROOT}/libecpg.so pglite/packages/pglite/release/postgres.so
+    fi
     mv pglite/packages/pglite/release/postgres.js pglite/packages/pglite/release/pgbuild.js
 
     cat > pglite/packages/pglite/release/share.js <<END

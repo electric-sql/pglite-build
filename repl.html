@@ -183,13 +183,16 @@
                     break
 
                 case 1:
-                    data = "SELECT 'é';"
-                    break
-
-                case 2:
                     data = "SELECT now();"
                     break
 
+                case 2:
+                    data = "CREATE EXTENSION vector;"
+                    break
+
+                case 3:
+                    data = "SELECT * FROM pg_extension;"
+                    break
             }
 
             if (data!=null) {
