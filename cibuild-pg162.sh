@@ -6,11 +6,15 @@
 
     pushd postgresql-16.2
 
-
-    if [ -f Makefile ]
+    if $CI
     then
-        echo "cleaning up previous build ..."
-        make distclean 2>&1 > /dev/null
+        echo "CI : using build cache"
+    else
+        if [ -f Makefile ]
+        then
+            echo "Cleaning up previous build ..."
+            make distclean 2>&1 > /dev/null
+        fi
     fi
 
     > ./src/template/emscripten

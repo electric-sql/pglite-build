@@ -131,7 +131,7 @@ then
     then
         tar -cpRz ${PGROOT} > /tmp/sdk/pg.tar.gz
         mkdir -p /tmp/sdk/
-        mv $WEBROOT/* /tmp/sdk/
+        cp $WEBROOT/* /tmp/sdk/
     fi
     popd
 fi
