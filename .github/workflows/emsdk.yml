@@ -47,7 +47,7 @@ jobs:
 
     - name: link postgres WASM for web
       run: |
-	bash ./cibuild.sh linkweb
+        bash ./cibuild.sh linkweb
 
     - name: Build pgvector
       run: |
