@@ -104,19 +104,6 @@ then
 fi
 
 
-if echo "$@"|grep linkweb
-then
-    # build web version
-    pushd postgresql
-    . $GITHUB_WORKSPACE/link.sh
-
-    if $CI
-    then
-        mv $WEBROOT/* /tmp/sdk/
-    fi
-    popd
-fi
-
 
 if echo "$@"|grep pgvector
 then
@@ -137,10 +124,23 @@ then
 fi
 
 
+# run this last so all extensions files can be packaged
 
+if echo "$@"|grep linkweb
+then
+    # build web version
+    pushd postgresql
+    . $GITHUB_WORKSPACE/link.sh
 
-
-
+    # upload all to gh pages, including node archive
+    if $CI
+    then
+        tar -cpRz ${PGROOT} > /tmp/sdk/pg.tar.gz
+        mkdir -p /tmp/sdk/
+        mv $WEBROOT/* /tmp/sdk/
+    fi
+    popd
+fi
 
 
 
