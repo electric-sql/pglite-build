@@ -1,5 +1,5 @@
 --- postgresql-16.2/src/backend/libpq/pqcomm.c	2024-02-05 22:41:37.000000000 +0100
-+++ postgresql-16.2-wasm/src/backend/libpq/pqcomm.c	2024-05-27 15:49:48.907899517 +0200
++++ postgresql-16.2-wasm/src/backend/libpq/pqcomm.c	2024-06-10 08:39:12.811204017 +0200
 @@ -123,8 +123,12 @@
  static int	PqSendBufferSize;	/* Size send buffer */
  static int	PqSendPointer;		/* Next index to store a byte in PqSendBuffer */
@@ -116,11 +116,12 @@
  void
  pq_startmsgread(void)
  {
-@@ -1163,7 +1217,22 @@
+@@ -1163,7 +1217,24 @@
  		ereport(FATAL,
  				(errcode(ERRCODE_PROTOCOL_VIOLATION),
  				 errmsg("terminating connection because protocol synchronization was lost")));
 -
++#if defined(I_EMSCRIPTEN)
 +    if (cma_rsize) {
 +        PqRecvPointer = 0;
 +        PqRecvLength = cma_rsize;
@@ -137,10 +138,11 @@
 +            PqSendBuffer=PqSendBuffer_save;
 +        PqSendBufferSize = PQ_SEND_BUFFER_SIZE;
 +    }
++#endif
  	PqCommReadingMsg = true;
  }
  
-@@ -1286,9 +1355,64 @@
+@@ -1286,9 +1357,64 @@
  
  	return 0;
  }
@@ -155,7 +157,7 @@
 +	{
 +        puts("# 1336: overflow");
 +    }
-+
+ 
 +    if (!cma_rsize) {
 +        int wc=      fwrite(s, 1, len, SOCKET_FILE);
 +        fprintf(stderr,"# sockfile %d +%d top=%p %d/%d\n", SOCKET_DATA, wc, PqSendBuffer, PqSendPointer,PqSendBufferSize);
@@ -185,12 +187,12 @@
 +    return 0;
 +}
  
-+static int
+ static int
 +socket_flush(void) {
 +    return internal_flush();
 +}
- 
- static int
++
++static int
 +internal_flush(void) {
 +if (cma_rsize) {
 +    puts("#1406: no flush for raw wire");
@@ -205,7 +207,7 @@
  internal_putbytes(const char *s, size_t len)
  {
  	size_t		amount;
-@@ -1407,7 +1531,7 @@
+@@ -1407,7 +1533,7 @@
  	PqSendStart = PqSendPointer = 0;
  	return 0;
  }

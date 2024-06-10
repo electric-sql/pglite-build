@@ -63,6 +63,13 @@ PG_L="-L../../src/port -L../../src/common \
  ../../src/common/libpgcommon_srv.a ../../src/port/libpgport_srv.a"
 
 PG_L="$PG_L -L../../src/interfaces/ecpg/ecpglib ../../src/interfaces/ecpg/ecpglib/libecpg.so"
+## \
+# /opt/python-wasm-sdk/devices/emsdk/usr/lib/libxml2.a \
+# /opt/python-wasm-sdk/devices/emsdk/usr/lib/libgeos.a \
+# /opt/python-wasm-sdk/devices/emsdk/usr/lib/libgeos_c.a \
+# /opt/python-wasm-sdk/devices/emsdk/usr/lib/libproj.a"
+
+# /data/git/pglite-build/pglite/postgres/libgeosall.so
 # /data/git/pglite-build/pglite/postgres/libduckdb.so"
 
 
