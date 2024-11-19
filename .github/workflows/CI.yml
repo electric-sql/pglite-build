@@ -1,0 +1,69 @@
+name: CI
+
+on:
+  workflow_dispatch:
+
+  release:
+    # this runs CI only when a release is created at first (and not when it is
+    # edited or published)
+    types: [created]
+
+  push:
+    branches: main
+
+  pull_request:
+    branches: main
+
+
+jobs:
+  build:
+    name: Build WASM Postgres
+    runs-on: ubuntu-22.04
+    env:
+      SDK_VERSION: 3.1.71.0bi
+      SDK_ARCHIVE: python3.12-wasm-sdk-Ubuntu-22.04.tar.lz4
+      WASI_SDK_ARCHIVE: python3.13-wasi-sdk-Ubuntu-22.04.tar.lz4
+      SDKROOT: /opt/python-wasm-sdk
+      SYS_PYTHON: /usr/bin/python3
+      PGROOT: /tmp/pglite
+      DEBUG: true
+      PGES6: true
+      contrib: contrib
+      OBJDUMP: true
+      TOTAL_MEMORY: 256MB
+      CMA_MB: 32
+      EXTRA_EXT: vector postgis
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Install python-wasm-sdk for emsdk/wasi+prebuilts
+        working-directory: /
+        run: |
+          sudo apt-get install -y lz4 wget pv bash
+          sudo rm $(which node) $(which npm)
+          echo https://github.com/pygame-web/python-wasm-sdk/releases/download/$SDK_VERSION/$SDK_ARCHIVE
+          curl -sL --retry 5 https://github.com/pygame-web/python-wasm-sdk/releases/download/$SDK_VERSION/$SDK_ARCHIVE | tar xvP --use-compress-program=lz4 | pv -p -l -s 36000 >/dev/null
+          echo https://github.com/pygame-web/python-wasi-sdk/releases/download/$WASI_SDK_VERSION/$WASI_SDK_ARCHIVE
+          curl -sL --retry 5 https://github.com/pygame-web/python-wasi-sdk/releases/download/$WASI_SDK_VERSION/$WASI_SDK_ARCHIVE | tar xvP --use-compress-program=lz4 | pv -p -l -s 36000 >/dev/null
+
+      - name: Build postgres WASM via wasi-sdk
+        run: |
+          WASI=true contrib=false extra=false bash ./cibuild.sh contrib extra node linkweb pglite
+
+#      - name: Build postgres WASM via emsdk
+#        run: |
+#          WASI=false bash ./cibuild.sh contrib extra node linkweb pglite
+
+      - name : "Upload to GitHub pages"
+        uses: JamesIves/github-pages-deploy-action@v4.4.1
+        with:
+          branch: gh-pages
+          folder: /tmp/web
+
+      - name: Test pglite
+        run: |
+          bash ./cibuild.sh pglite-test
+
