@@ -790,7 +790,7 @@ $CC -o postgres \
  -Wl,--export=interactive_one \
  -Wl,--export=use_socketfile \
  -Wl,--export=interactive_write \
- -Wl,--export=interactive_read
+ -Wl,--export=interactive_read \
  -Wl,--global-base=33333333
 
 cp -vf postgres postgres.wasi || exit 192
