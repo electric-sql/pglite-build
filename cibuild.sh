@@ -345,7 +345,8 @@ then
         SKIP="\
  [\
  sslinfo bool_plperl hstore_plperl hstore_plpython jsonb_plperl jsonb_plpython\
- ltree_plpython sepgsql bool_plperl start-scripts pgcrypto\
+ ltree_plpython sepgsql bool_plperl start-scripts\
+ pgcrypto uuid-ossp\
  ]"
     fi
 
