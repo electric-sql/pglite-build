@@ -20,3 +20,10 @@ https://github.com/sgosiaco/pglite-go
 php wasm:
 https://github.com/seanmorris/pdo-pglite
 
+
+
+extensions not built yet:
+
+`pgcrypto uuid-ossp xml2`
+
+
