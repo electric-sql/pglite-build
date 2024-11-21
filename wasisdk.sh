@@ -1,4 +1,5 @@
 reset
+export SDKROOT=${SDKROOT:-/opt/python-wasm-sdk}
 
 export CI=true
 export WASI=true
