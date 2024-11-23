@@ -100,9 +100,9 @@ pushd src/backend
 
 # ? -sLZ4=1  -sENVIRONMENT=web
 # -sSINGLE_FILE  => Uncaught SyntaxError: Cannot use 'import.meta' outside a module (at postgres.html:1:6033)
-# -sENVIRONMENT=web => XHR
+# -sENVIRONMENT=web => XHR (fixed?) , size opt but not more node
 
-    export EMCC_WEB="-sENVIRONMENT=web -sNO_EXIT_RUNTIME=1 -sFORCE_FILESYSTEM=1"
+    export EMCC_WEB="-sNO_EXIT_RUNTIME=1 -sFORCE_FILESYSTEM=1"
 
     if ${PGES6:-true}
     then
@@ -233,7 +233,7 @@ COPTS="$COPTS" emcc -sENVIRONMENT=node -sNO_EXIT_RUNTIME=1 -sFORCE_FILESYSTEM=1 
      -sEXPORTED_RUNTIME_METHODS=FS,setValue,getValue,UTF8ToString,stringToNewUTF8,stringToUTF8OnStack,ccall,cwrap,callMain \\
      $PGPRELOAD \\
      -o postgres.js ${WORKSPACE}/libpgstatic.a $PG_L
-cp postgres.js /tmp/postgres.node
+cp postgres.js /tmp/pglite/bin/postgres.node
 
 rm postgres.js postgres.cjs postgres.data postgres.wasm postgres.html
 COPTS="$COPTS" emcc $EMCC_WEB \\
