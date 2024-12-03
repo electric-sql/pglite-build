@@ -1,5 +1,8 @@
 #!/bin/bash
 
+set -x;
+set -e;
+
 # data transfer zone this is == (wire query size + result size ) + 2
 # expressed in EMSDK MB
 export CMA_MB=${CMA_MB:-32}
@@ -29,7 +32,7 @@ export MEMORY="-sINITIAL_MEMORY=128MB -sMAXIMUM_MEMORY=${TOTAL_MEMORY} -sSTACK_S
 # export MEMORY="-sTOTAL_MEMORY=${TOTAL_MEMORY} -sSTACK_SIZE=4MB -sGLOBAL_BASE=${CMA_MB}MB -sALLOW_TABLE_GROWTH -sALLOW_MEMORY_GROWTH"
 
 
-export PYDK_CFLAGS="-Wno-missing-prototypes"
+export PYDK_CFLAGS="-Wno-missing-prototypes -Wformat -Wunused-variable"
 
 # exit on error
 EOE=false
