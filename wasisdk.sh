@@ -30,7 +30,7 @@ else
 fi
 
 
-rm /tmp/pglite/base/.s.PGS*
+rm -f /tmp/pglite/base/.s.PGS*
 
 WASMTIME_BACKTRACE_DETAILS=1 wasi-run /tmp/pglite/bin/postgres.wasi --single postgres || \
- WASMTIME_BACKTRACE_DETAILS=1 wasi-run /tmp/pglite/bin/postgres.wasi --single postgres
+WASMTIME_BACKTRACE_DETAILS=1 wasi-run /tmp/pglite/bin/postgres.wasi --single postgres

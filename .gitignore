@@ -161,4 +161,4 @@ cython_debug/
 
 
 /pglite
-/postgresql-16*
+/postgresql*
