@@ -160,6 +160,5 @@ cython_debug/
 #.idea/
 
 
-/postgresql-16.2.tar.bz2
-/postgresql-16.2/
 /pglite
+/postgresql*
