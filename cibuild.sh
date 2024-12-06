@@ -1,14 +1,19 @@
 #!/bin/bash
+
+#set -x;
+set -e;
+
 # data transfer zone this is == (wire query size + result size ) + 2
 # expressed in EMSDK MB
-export CMA_MB=${CMA_MB:-32}
+export CMA_MB=${CMA_MB:-64}
 
 export CI=${CI:-false}
 
-if $CI
-then
-    . .buildconfig
-fi
+chmod +x ./extra/*.sh cibuild/*.sh
+
+. .buildconfig
+
+export PG_VERSION SDK_VERSION WASI_SDK_VERSION SDKROOT
 
 export PG_VERSION=${PG_VERSION:-16.4}
 export WORKSPACE=${GITHUB_WORKSPACE:-$(pwd)}
@@ -18,22 +23,22 @@ export DEBUG=${DEBUG:-false}
 export PGDATA=${PGROOT}/base
 export PGUSER=${PGUSER:-postgres}
 export PGPATCH=${WORKSPACE}/patches
-export TOTAL_MEMORY=${TOTAL_MEMORY:-512MB}
+export TOTAL_MEMORY=${TOTAL_MEMORY:-128MB}
 export WASI=${WASI:-false}
-# 72 - 144228352
-# -sINITIAL_HEAP not compatible with IMPORTED_MEMORY (which is enabled indirectly via SHARED_MEMORY, RELOCATABLE, ASYNCIFY_LAZY_LOAD_CODE)
 
-export MEMORY="-sINITIAL_MEMORY=128MB -sMAXIMUM_MEMORY=${TOTAL_MEMORY} -sSTACK_SIZE=2MB  -sALLOW_TABLE_GROWTH -sALLOW_MEMORY_GROWTH"
-# -sGLOBAL_BASE=${CMA_MB}MB
-# export MEMORY="-sTOTAL_MEMORY=${TOTAL_MEMORY} -sSTACK_SIZE=4MB -sGLOBAL_BASE=${CMA_MB}MB -sALLOW_TABLE_GROWTH -sALLOW_MEMORY_GROWTH"
-
-
-export PYDK_CFLAGS="-Wno-missing-prototypes -Wformat -Wunused-variable"
 
 # exit on error
 EOE=false
 
-mkdir -p /tmp/sdk
+
+if ./cibuild/sdk.sh
+then
+    echo "sdk check passed (emscripten+wasi)"
+else
+    echo sdk failed
+    exit 39
+fi
+
 
 # the default is a user writeable path.
 if mkdir -p ${PGROOT}/sdk
@@ -82,17 +87,10 @@ then
     echo "Wasi build (experimental)"
     . /opt/python-wasm-sdk/wasm32-wasi-shell.sh
 
-    if [ -f ${WORKSPACE}/sdk-fix.tar ]
-    then
-        pushd $WASI_SDK_DIR
-        tar xf ${WORKSPACE}/sdk-fix.tar
-        popd
-    fi
-
 else
     if which emcc
     then
-        echo "emcc found in PATH=$PATH (please set PREFIX)"
+        echo "emcc found in PATH=$PATH"
     else
         . /opt/python-wasm-sdk/wasm32-bi-emscripten-shell.sh
     fi
@@ -106,9 +104,9 @@ else
         node : $(which node) $($(which node) -v)
         PNPM : $(which pnpm)
 
-    PREFIX=$PREFIX
 
 "
+
     # custom code for node/web builds that modify pg main/tools behaviour
     # this used by both node/linkweb build stages
 
@@ -146,7 +144,7 @@ then
     then
         echo "wasm-objdump found"
     else
-        WRAPPER=$(command -v wasm-objdump)
+        WRAPPER=$(which wasm-objdump)
         WASIFILE=$(realpath ${WRAPPER}.wasi)
         if $WRAPPER -h $WASIFILE | grep -q 'file format wasm 0x1'
         then
@@ -233,19 +231,13 @@ END
 #define PGDEBUG 0
 #endif
 END
-    cat >> ${PG_DEBUG_HEADER} <<END
-#if defined(PG_VERSION_STR)
-#undef PG_VERSION_STR
-#endif
-#define PG_VERSION_STR "PostgreSQL ${PG_VERSION} (PGlite PGLITE_VERSION) on wasm32"
-END
-
     fi
 
     mkdir -p ${PGROOT}/include/postgresql/server
-    #cp ${PG_DEBUG_HEADER} ${PGROOT}/include/
-    cp ${PG_DEBUG_HEADER} ${PGROOT}/include/postgresql
-    cp ${PG_DEBUG_HEADER} ${PGROOT}/include/postgresql/server
+    for dest in ${PGROOT}/include ${PGROOT}/include/postgresql ${PGROOT}/include/postgresql/server
+    do
+        [ -f $dest/pg_debug.h ] || cp ${PG_DEBUG_HEADER} $dest/
+    done
 
     # store all pg options that have impact on cmd line initdb/boot
     cat > ${PGROOT}/pgopts.sh <<END
@@ -300,7 +292,12 @@ END
 
     # install emsdk-shared along with pg config  tool
     # for building user ext.
-    cp build/postgres/bin/emsdk-shared $PGROOT/bin/
+    if [ -f $PGROOT/bin/emsdk-shared ]
+    then
+        echo emsdk-shared already installed
+    else
+        cp -vf build/postgres/bin/emsdk-shared $PGROOT/bin/
+    fi
 
     export PGLITE=$(pwd)/packages/pglite
 
@@ -338,16 +335,6 @@ then
  sslinfo bool_plperl hstore_plperl hstore_plpython jsonb_plperl jsonb_plpython\
  ltree_plpython sepgsql bool_plperl start-scripts\
  ]"
-
-    if $WASI
-    then
-        SKIP="\
- [\
- sslinfo bool_plperl hstore_plperl hstore_plpython jsonb_plperl jsonb_plpython\
- ltree_plpython sepgsql bool_plperl start-scripts\
- pgcrypto uuid-ossp xml2\
- ]"
-    fi
 
     for extdir in postgresql/contrib/*
     do
@@ -400,27 +387,15 @@ then
                 . /etc/lsb-release
                 DISTRIB="${DISTRIB_ID}-${DISTRIB_RELEASE}"
                 CIVER=${CIVER:-$DISTRIB}
-                SDK_URL=https://github.com/pygame-web/python-wasm-sdk-extra/releases/download/$SDK_VERSION/python-emsdk-sdk-extra-${CIVER}.tar.lz4
+                SDK_URL=https://github.com/pygame-web/python-wasm-sdk-extra/releases/download/$SDK_VERSION/python3.13-emsdk-sdk-extra-${CIVER}.tar.lz4
                 echo "Installing $SDK_URL"
                 curl -sL --retry 5 $SDK_URL | tar xvP --use-compress-program=lz4 | pv -p -l -s 15000 >/dev/null
                 chmod +x ./extra/*.sh
             fi
         fi
         echo "======================= ${extra_ext} : $(pwd) ==================="
-        if [ -f ./extra/${extra_ext}.sh ]
-        then
-            ./extra/${extra_ext}.sh || exit 400
-        else
-            echo "
 
-    WARNING: Current source tree has not support ./extra/${extra_ext}.sh
-             for building ${extra_ext}
-
-
-
-"
-        fi
-
+        ./extra/${extra_ext}.sh || exit 400
 
         python3 cibuild/pack_extension.py
     done
@@ -494,7 +469,6 @@ do
 
 __________________________ enabled extensions (dlfcn)_____________________________
 "
-    cp -f ${WORKSPACE}/extra/*.tar.gz ${WEBROOT}/
     cp -vf ${WEBROOT}/*.tar.gz ${PGLITE}/release/
 echo "
 __________________________________________________________________________________
@@ -507,12 +481,25 @@ ________________________________________________________________________________
 
                 # debug CI does not use pnpm/npm for building pg, so call the typescript build
                 # part from here
-                pnpm --filter "pglite^..." build || exit 450
-
+                #pnpm --filter "pglite^..." build || exit 450
+                pnpm run build:js || exit 476
                 pnpm pack || exit 31
                 packed=$(echo -n electric-sql-pglite-*.tgz)
 
                 mv $packed /tmp/sdk/pg${PG_VERSION}-${packed}
+
+                # for repl demo
+#                mkdir -p /tmp/web/pglite
+
+                #cp -r ${PGLITE}/dist ${WEBROOT}/pglite/
+                #cp -r ${PGLITE}/examples ${WEBROOT}/pglite/
+
+#                for dir in /tmp/web ${WEBROOT}/pglite/examples
+#                do
+#                    pushd "$dir"
+#                    cp ${PGLITE}/dist/postgres.data ./
+#                    popd
+#                done
 
                 echo "<html>
                 <body>
@@ -532,12 +519,15 @@ ________________________________________________________________________________
             mkdir -p ${PGROOT}/sdk/packages/ /tmp/web/pglite /tmp/web/repl/
             cp -r $PGLITE ${PGROOT}/sdk/packages/
 
+            #mkdir /tmp/web/repl/dist-webcomponent -p
+            #cp -r ${WORKSPACE}/packages/pglite-repl/dist-webcomponent /tmp/web/repl/
+
             if $CI
             then
                 tar -cpRz ${PGROOT} > /tmp/sdk/pglite-pg${PG_VERSION}.tar.gz
 
                 # build sdk (node)
-                cp /tmp/sdk/postgres-${PG_VERSION}.tar.gz ${WEBROOT}/
+                cp /tmp/sdk/postgres-${PG_VERSION}-*.tar.gz ${WEBROOT}/
 
                 # pglite (web)
                 cp /tmp/sdk/pglite-pg${PG_VERSION}.tar.gz ${WEBROOT}/
@@ -570,9 +560,8 @@ ________________________________________________________________________________
             #rm $PGLITE/release/*
 
             # copy packed extensions
-            cp -f ${WORKSPACE}/extra/*.tar.gz ${WEBROOT}/
-            cp -vf ${WEBROOT}/*.tar.gz  ${PGLITE}/release/
-            cp -vf ${WEBROOT}/postgres.{js,data,wasm} ${PGLITE}/release/
+            cp -vf ${WEBROOT}/*.tar.gz ${PGLITE}/release/
+            cp -vf ${WEBROOT}/postgres.{js,data,wasm} $PGLITE/release/
         ;;
 
         pglite-bundle-interim) echo "================== pglite-bundle-interim ======================"
