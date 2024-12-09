@@ -33,7 +33,8 @@ jobs:
       OBJDUMP: true
       TOTAL_MEMORY: 256MB
       CMA_MB: 32
-      EXTRA_EXT: vector postgis
+      EXTRA_EXT: vector
+      extra: false
 
     steps:
       - uses: actions/checkout@v4
