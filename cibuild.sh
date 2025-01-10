@@ -118,8 +118,8 @@ then
     else
 
         . ${SDKROOT}/wasm32-wasi-shell.sh
+        export WASI_CFLAGS=-DPYDK
         env | grep WASI
-        read
     fi
 else
     if which emcc
