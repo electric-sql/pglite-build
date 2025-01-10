@@ -13,7 +13,7 @@ chmod +x ./extra/*.sh cibuild/*.sh
 
 . .buildconfig
 
-export PG_VERSION SDK_VERSION WASI_SDK_VERSION SDKROOT
+export PG_VERSION SDK_VERSION WASI_SDK_VERSION SDKROOT COPTS
 
 export PG_VERSION=${PG_VERSION:-16.4}
 export WORKSPACE=${GITHUB_WORKSPACE:-$(pwd)}
@@ -85,8 +85,42 @@ System node/pnpm ( may interfer) :
 if ${WASI:-false}
 then
     echo "Wasi build (experimental)"
-    . /opt/python-wasm-sdk/wasm32-wasi-shell.sh
+    export WASI_SDK=24.0
+    export WASI_SDK_PREFIX=/opt/python-wasm-sdk/wasisdk/wasi-sdk-${WASI_SDK}-x86_64-linux
+    export WASI_SYSROOT=${WASI_SDK_PREFIX}/share/wasi-sysroot
 
+    if [ -f ${WASI_SYSROOT}/extra ]
+    then
+        echo -n
+    else
+        pushd ${WASI_SYSROOT}
+            VMLABS="https://github.com/vmware-labs/webassembly-language-runtimes/releases/download"
+            wget -q "${VMLABS}/libs%2Flibpng%2F1.6.39%2B20230629-ccb4cb0/libpng-1.6.39-wasi-sdk-20.0.tar.gz" -O-| tar xfz -
+            wget -q "${VMLABS}/libs%2Fzlib%2F1.2.13%2B20230623-2993864/libz-1.2.13-wasi-sdk-20.0.tar.gz"  -O-| tar xfz -
+            wget -q "${VMLABS}/libs%2Fsqlite%2F3.42.0%2B20230623-2993864/libsqlite-3.42.0-wasi-sdk-20.0.tar.gz" -O-| tar xfz -
+            wget -q "${VMLABS}/libs%2Flibxml2%2F2.11.4%2B20230623-2993864/libxml2-2.11.4-wasi-sdk-20.0.tar.gz" -O-| tar xfz -
+            wget -q "${VMLABS}/libs%2Fbzip2%2F1.0.8%2B20230623-2993864/libbzip2-1.0.8-wasi-sdk-20.0.tar.gz"  -O-| tar xfz -
+            wget -q "${VMLABS}/libs%2Flibuuid%2F1.0.3%2B20230623-2993864/libuuid-1.0.3-wasi-sdk-20.0.tar.gz" -O-| tar xfz -
+        popd
+        touch ${WASI_SYSROOT}/extra
+    fi
+
+
+    if false
+    then
+        . /opt/python-wasm-sdk/wasisdk/wasisdk_env.sh
+        env|grep WASI
+        export CC=${WASI_SDK_DIR}/bin/clang
+        export CPP=${WASI_SDK_DIR}/bin/clang-cpp
+        export CXX=${WASI_SDK_DIR}/bin/clang++
+        export CFLAGS="-D_WASI_EMULATED_SIGNAL"
+        export LDFLAGS="-lwasi-emulated-signal"
+    else
+
+        . ${SDKROOT}/wasm32-wasi-shell.sh
+        env | grep WASI
+        read
+    fi
 else
     if which emcc
     then
@@ -176,6 +210,9 @@ if $OBJDUMP
 then
     mkdir -p patches/imports patches/imports.pgcore
 else
+    mkdir -p patches/imports
+    touch patches/imports/plpgsql
+
     echo "
 
     WARNING:    wasm-objdump not found or OBJDUMP disabled, some extensions may not load properly
