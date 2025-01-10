@@ -53,7 +53,7 @@ jobs:
 
       - name: Build postgres WASM via wasi-sdk
         run: |
-          WASI=true contrib=false extra=false bash ./cibuild.sh contrib extra node linkweb pglite
+          NO_SDK_CHECK=true WASI=true contrib=false extra=false bash ./cibuild.sh contrib extra node linkweb pglite
 
 #      - name: Build postgres WASM via emsdk
 #        run: |

@@ -116,10 +116,7 @@ then
         export CFLAGS="-D_WASI_EMULATED_SIGNAL"
         export LDFLAGS="-lwasi-emulated-signal"
     else
-
         . ${SDKROOT}/wasm32-wasi-shell.sh
-        export WASI_CFLAGS=-DPYDK
-        env | grep WASI
     fi
 else
     if which emcc
