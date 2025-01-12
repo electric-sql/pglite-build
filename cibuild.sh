@@ -1,7 +1,7 @@
 #!/bin/bash
 
-set -x;
-set -e;
+#set -x;
+#set -e;
 
 # data transfer zone this is == (wire query size + result size ) + 2
 # expressed in EMSDK MB
@@ -15,7 +15,6 @@ chmod +x ./extra/*.sh cibuild/*.sh
 
 export PG_VERSION SDK_VERSION WASI_SDK_VERSION SDKROOT COPTS
 
-export PG_VERSION=${PG_VERSION:-16.4}
 export WORKSPACE=${GITHUB_WORKSPACE:-$(pwd)}
 export PGROOT=${PGROOT:-/tmp/pglite}
 export WEBROOT=${WEBROOT:-/tmp/web}
@@ -209,7 +208,6 @@ then
 else
     mkdir -p patches/imports
     touch patches/imports/plpgsql
-
     echo "
 
     WARNING:    wasm-objdump not found or OBJDUMP disabled, some extensions may not load properly
@@ -317,11 +315,11 @@ END
     # to get same path for wasm shared link tools in the path
     # for extensions building.
     # we always symlink in-tree build to "postgresql" folder
-    if echo $PG_VERSION|grep -q ^16
+    if echo $PG_VERSION|grep -q git
     then
-        . cibuild/pg-16.x.sh
-    else
         . cibuild/pg-git.sh
+    else
+        . cibuild/pg-16.x.sh
     fi
 
     # install emsdk-shared along with pg config  tool

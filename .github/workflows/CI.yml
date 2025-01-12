@@ -20,9 +20,9 @@ jobs:
     name: Build WASM Postgres
     runs-on: ubuntu-22.04
     env:
-      SDK_VERSION: 3.1.72.2bi
+      SDK_VERSION: 3.1.74.2bi
       SDK_ARCHIVE: python3.13-wasm-sdk-Ubuntu-22.04.tar.lz4
-      WASI_SDK_VERSION: 24.0.4
+      WASI_SDK_VERSION: 24.0.5
       WASI_SDK_ARCHIVE: python3.13-wasi-sdk-Ubuntu-22.04.tar.lz4
       SDKROOT: /opt/python-wasm-sdk
       SYS_PYTHON: /usr/bin/python3
