@@ -95,7 +95,8 @@ else
 #  --disable-atomics https://github.com/WebAssembly/threads/pull/147  "Allow atomic operations on unshared memories"
 
 
-    export PYDK_CFLAGS="${CC_PGLITE} -DPREFIX=${PGROOT} -DPYDK=1 -Dproc_exit(arg)=pg_proc_exit(arg)"
+    export PYDK_CFLAGS="${CC_PGLITE} -DPREFIX=${PGROOT} -DPYDK=1"
+    # -Dproc_exit(arg)=pg_proc_exit(arg)"
 
     if ${WASI}
     then
