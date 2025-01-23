@@ -1,15 +1,18 @@
 #!/usr/bin/env bash
+export PG_VERSION=${PG_VERSION:-REL_16_6_WASM}
 export PORTABLE=$(realpath $(dirname $0))
 export ROOT=$(realpath $(pwd))
+
 echo "
 
 PORTABLE=$PORTABLE
 ROOT=$ROOT
+PG_VERSION=$PG_VERSION
 
 "
 
 
-export PG_VERSION=${PG_VERSION:-REL_16_6_WASM}
+
 
 export PATH=$PORTABLE:$PATH
 export WORKDIR=${ROOT}
@@ -353,7 +356,15 @@ then
     then
         echo tree already patched for emscripten/pglite
     else
-            echo
+        echo "
+
+    Patching branch ${PG_VERSION} with :
+
+$(find patches/postgres-*)
+
+
+
+"
         touch ./src/template/emscripten
         touch ./src/include/port/emscripten.h
         touch ./src/include/port/wasm_common.h

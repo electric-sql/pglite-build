@@ -20,13 +20,15 @@ jobs:
     runs-on: ubuntu-latest
     env:
       WASI_SDK_VERSION: 24.0.5
+      WASI_SDK_ARCHIVE: python3.13-wasi-sdk-Ubuntu-22.04.tar.lz4
+      DEBUG: true
 
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 1
 
-      - name: Install python-wasm-sdk for emsdk/wasi+prebuilts
+      - name: Install python-wasi-sdk for wasi+prebuilts
         working-directory: /
         run: |
           sudo apt-get install -y lz4 wget pv bash
