@@ -360,7 +360,7 @@ then
 
     Patching branch ${PG_VERSION} with :
 
-$(find patches/postgres-*)
+$(find patches-${PG_VERSION}/postgres-*)
 
 
 
@@ -375,9 +375,9 @@ $(find patches/postgres-*)
             postgresql-emscripten \
             postgresql-pglite
         do
-            if [ -d patches/$patchdir ]
+            if [ -d patches-${PG_VERSION}/$patchdir ]
             then
-                for one in patches/$patchdir/*.diff
+                for one in patches-${PG_VERSION}/$patchdir/*.diff
                 do
                     if cat $one | patch -p1
                     then
@@ -399,7 +399,7 @@ Fatal: failed to apply patch : $one
     then
         echo using cached version
     else
-        SDK_URL=https://github.com/pygame-web/portable-sdk/releases/download/3.1.74.3bi/python3.13-wasm-sdk-alpine-3.21.tar.lz4
+        SDK_URL=https://github.com/pygame-web/portable-sdk/releases/download/3.1.74.4bi/python3.13-wasm-sdk-alpine-3.21.tar.lz4
         echo "setting up sdk $SDK_URL"
         pushd $CONTAINER_PATH
             mkdir -p /tmp/sdk

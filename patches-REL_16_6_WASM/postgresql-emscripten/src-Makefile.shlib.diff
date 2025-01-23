@@ -1,5 +1,5 @@
---- postgresql/src/Makefile.shlib
-+++ postgresql-wasm/src/Makefile.shlib
+--- pgw-REL_16_6_WASM/src/Makefile.shlib
++++ postgres/src/Makefile.shlib
 @@ -233,6 +233,33 @@
    override CXXFLAGS += $(CXXFLAGS_SL_MODULE)
  endif
