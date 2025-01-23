@@ -10,5 +10,8 @@ cp -R wasm-build* patches-${PG_VERSION} postgresql-${PG_VERSION}/
 
 pushd postgresql-${PG_VERSION}
     ${WORKSPACE}/portable/portable.sh
+    pushd build/postgres
+    tar -cpvRz libpglite.a > /tmp/sdk/libpglite-emsdk.tar.gz
+    popd
 popd
 

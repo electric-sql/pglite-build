@@ -17,7 +17,7 @@ on:
 jobs:
   build:
     name: Build WASM Postgres
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     env:
       WASI_SDK_VERSION: 24.0.5
       WASI_SDK_ARCHIVE: python3.13-wasi-sdk-Ubuntu-22.04.tar.lz4
@@ -36,13 +36,23 @@ jobs:
           echo https://github.com/pygame-web/python-wasi-sdk/releases/download/$WASI_SDK_VERSION/$WASI_SDK_ARCHIVE
           curl -sL --retry 5 https://github.com/pygame-web/python-wasi-sdk/releases/download/$WASI_SDK_VERSION/$WASI_SDK_ARCHIVE | tar xvP --use-compress-program=lz4 | pv -p -l -s 23000 >/dev/null
 
+      - name: Build postgres 16.x WASM via portable-emsdk
+        run: |
+          bash ./ci-16_6_WASM.sh
+
 #      - name: Build postgres WASM via poswasi-sdk
 #        run: |
 #          NO_SDK_CHECK=true WASI=true contrib=false extra=false bash ./cibuild.sh contrib extra node linkweb pglite
 
-      - name: Build postgres WASM via portable-emsdk
-        run: |
-          bash ./ci-16_6_WASM.sh
+      - name: Upload sdk to Github Releases
+        if: github.event_name == 'release'
+        uses: svenstaro/upload-release-action@2.9.0
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: /tmp/sdk/lib*.tar.gz
+          file_glob: true
+          tag: ${{ github.ref }}
+
 
 #      - name : "Upload to GitHub pages"
 #        uses: JamesIves/github-pages-deploy-action@v4.4.1

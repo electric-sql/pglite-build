@@ -373,6 +373,7 @@ $(find patches-${PG_VERSION}/postgres-*)
         for patchdir in \
             postgresql-debug \
             postgresql-emscripten \
+            postgresql-wasi \
             postgresql-pglite
         do
             if [ -d patches-${PG_VERSION}/$patchdir ]
