@@ -19,8 +19,8 @@ jobs:
     name: Build WASM Postgres
     runs-on: ubuntu-latest
     env:
-      PG_VERSION: REL_16_6_WASM
-      
+      WASI_SDK_VERSION: 24.0.5
+
     steps:
       - uses: actions/checkout@v4
         with:

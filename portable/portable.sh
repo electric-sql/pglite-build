@@ -394,7 +394,7 @@ Fatal: failed to apply patch : $one
             mkdir -p /tmp/sdk
             tmpfile=/tmp/sdk/python3.13-wasm-sdk-alpine-3.21.tar.lz4
             [ -f /opt/python3.13-wasm-sdk-alpine-3.21.tar.lz4 ] && cp -f /opt/python3.13-wasm-sdk-alpine-3.21.tar.lz4 $tmpfile
-            [ -f /tmp/sdk/python3.13-wasm-sdk-alpine-3.21.tar.lz4 ] || wget $SDK_URL -O$tmpfile
+            [ -f /tmp/sdk/python3.13-wasm-sdk-alpine-3.21.tar.lz4 ] || wget -q $SDK_URL -O$tmpfile
             cat $tmpfile | tar x --use-compress-program=lz4
         popd
     fi
