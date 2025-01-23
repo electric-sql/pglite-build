@@ -407,47 +407,6 @@ md5pass =  "md5" + __import__('hashlib').md5(USER.encode() + PASS.encode()).hexd
 print(f"localhost:5432:postgres:{USER}:{md5pass}")
 END
 
-
-#    if [ -f $PGROOT/bin/pg_config.$EXT ]
-#    then
-#        echo pg_config installed
-#    else
-#        echo "pg_config build failed"; exit 283
-#    fi
-
-#    if $WASI
-#    then
-#        echo "TODO:  wasi-run wrappers for bin/*"
-#        cat > ${PGROOT}/bin/pg_config <<END
-##!/bin/bash
-#$(which wasi-run) ${PGROOT}/bin/pg_config.wasi \$@
-#END
-
-#    else
-#        cat > ${PGROOT}/bin/pg_config <<END
-##!/bin/bash
-#$(which node) ${PGROOT}/bin/pg_config.cjs \$@
-#END
-
-#        cat  > ${PGROOT}/postgres <<END
-##!/bin/bash
-#. /opt/python-wasm-sdk/wasm32-bi-emscripten-shell.sh
-#TZ=UTC PGTZ=UTC PGDATA=${PGDATA} $(which node) ${PGROOT}/bin/postgres.cjs \$@
-#END
-
-#        # force node wasm version
-#        cp -vf ${PGROOT}/postgres ${PGROOT}/bin/postgres
-
-#	cat  > ${PGROOT}/initdb <<END
-##!/bin/bash
-#. /opt/python-wasm-sdk/wasm32-bi-emscripten-shell.sh
-#TZ=UTC PGTZ=UTC $(which node) ${PGROOT}/bin/initdb.cjs \$@
-#END
-
-#        chmod +x ${PGROOT}/postgres ${PGROOT}/bin/postgres
-#    	# chmod +x ${PGROOT}/initdb ${PGROOT}/bin/initdb
-#    fi
-
     # for extensions building
     chmod +x ${PGROOT}/bin/pg_config
 

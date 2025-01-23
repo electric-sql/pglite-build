@@ -1,10 +1,9 @@
-
-ENV PYTHON_VERSION 3.13.1
+ENV SDKURL https://github.com/pygame-web/portable-sdk/releases/download/3.1.74.4bi/python3.13-wasm-sdk-alpine-3.21.tar.lz4
 ENV SDKROOT /opt/python-wasm-sdk
 ENV PIP_ROOT_USER_ACTION ignore
 ENV PIP_NO_CACHE_DIR 1
 
-# TODO : bootstrap python from clang directly and use it as SYS_PYTHON
+# nb: the python for build from sdk built with clang directly is used as SYS_PYTHON for emsdk
 RUN apk add --no-cache --virtual .build-deps \
 	    tar file lz4 \
 	    git patch bison flex \

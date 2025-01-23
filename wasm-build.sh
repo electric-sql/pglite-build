@@ -315,7 +315,7 @@ POSIX
 UTF-8
 END
 
-    . ${PORTABLE}/pgbuild.sh
+    . ${PORTABLE}/build-pgcore.sh
 fi
 
 # put local zic in the path from build dir
@@ -583,5 +583,7 @@ ________________________________________________________________________________
     shift
 done
 
-
-
+if [ -f  ${WORKSPACE}/pglite/build.sh ]
+then
+    ${WORKSPACE}/pglite/build.sh
+fi

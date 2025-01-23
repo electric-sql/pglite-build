@@ -8,10 +8,25 @@ export PG_VERSION=${PG_VERSION:-REL_16_6_WASM}
 chmod +x portable/*.sh wasm-build/*.sh
 cp -R wasm-build* patches-${PG_VERSION} postgresql-${PG_VERSION}/
 
+[ -d postgresql-${PG_VERSION}/pglite ] || cp -Rv pglite postgresql-${PG_VERSION}/
+
 pushd postgresql-${PG_VERSION}
     ${WORKSPACE}/portable/portable.sh
-    pushd build/postgres
-    tar -cpvRz libpglite.a > /tmp/sdk/libpglite-emsdk.tar.gz
-    popd
+    if [ -f build/postgres/libpglite.a ]
+    then
+        pushd build/postgres
+        tar -cpvRz libpglite.a > /tmp/sdk/libpglite-emsdk.tar.gz
+        popd
+
+
+        git restore src/test/Makefile src/test/isolation/Makefile
+
+        # backup
+        [ -d pglite ] && cp -Rv pglite ${WORKSPACE}/
+
+    else
+        echo failed to build libplite static
+        exit 19
+    fi
 popd
 

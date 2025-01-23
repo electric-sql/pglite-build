@@ -23,6 +23,45 @@ export HOME=/tmp
 #export ALPINEPROOT_USE_PROOT_RS=true
 export PROOT=${PORTABLE}/proot
 
+# --------------------------------------------------------
+# "docker emulation"
+FROM () {
+    echo "FROM $1 AS $2"
+}
+
+ARG () {
+    echo "ARG $1"
+}
+
+WORKDIR () {
+    echo "WORKDIR $1"
+    cd "$1"
+}
+
+COPY () {
+    echo "COPY $*"
+}
+
+ENV () {
+    if [[ -v $1 ]]
+    then
+        echo "$1 is set"
+    else
+        echo "$1 was unset"
+        export $1=$2
+    fi
+}
+
+RUN () {
+    echo "proot: skipping docker cmd : '$@'"
+}
+
+# --------------------------------------------------------
+
+
+
+
+
 
 if mkdir -p $CONTAINER_PATH
 then
