@@ -9,33 +9,18 @@ on:
     types: [created]
 
   push:
-    branches: main
+    branches: portable
 
   pull_request:
-    branches: main
-
+    branches: portable
 
 jobs:
   build:
     name: Build WASM Postgres
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     env:
-      SDK_VERSION: 3.1.74.2bi
-      SDK_ARCHIVE: python3.13-wasm-sdk-Ubuntu-22.04.tar.lz4
-      WASI_SDK_VERSION: 24.0.5
-      WASI_SDK_ARCHIVE: python3.13-wasi-sdk-Ubuntu-22.04.tar.lz4
-      SDKROOT: /opt/python-wasm-sdk
-      SYS_PYTHON: /usr/bin/python3
-      PGROOT: /tmp/pglite
-      DEBUG: true
-      PGES6: true
-      contrib: contrib
-      OBJDUMP: true
-      TOTAL_MEMORY: 256MB
-      CMA_MB: 32
-      EXTRA_EXT: vector
-      extra: false
-
+      PG_VERSION: REL_16_6_WASM
+      
     steps:
       - uses: actions/checkout@v4
         with:
@@ -46,24 +31,22 @@ jobs:
         run: |
           sudo apt-get install -y lz4 wget pv bash
           sudo rm $(which node) $(which npm)
-          echo https://github.com/pygame-web/python-wasm-sdk/releases/download/$SDK_VERSION/$SDK_ARCHIVE
-          curl -sL --retry 5 https://github.com/pygame-web/python-wasm-sdk/releases/download/$SDK_VERSION/$SDK_ARCHIVE | tar xvP --use-compress-program=lz4 | pv -p -l -s 34500 >/dev/null
           echo https://github.com/pygame-web/python-wasi-sdk/releases/download/$WASI_SDK_VERSION/$WASI_SDK_ARCHIVE
           curl -sL --retry 5 https://github.com/pygame-web/python-wasi-sdk/releases/download/$WASI_SDK_VERSION/$WASI_SDK_ARCHIVE | tar xvP --use-compress-program=lz4 | pv -p -l -s 23000 >/dev/null
 
-      - name: Build postgres WASM via wasi-sdk
-        run: |
-          NO_SDK_CHECK=true WASI=true contrib=false extra=false bash ./cibuild.sh contrib extra node linkweb pglite
-
-#      - name: Build postgres WASM via emsdk
+#      - name: Build postgres WASM via poswasi-sdk
 #        run: |
-#          WASI=false bash ./cibuild.sh contrib extra node linkweb pglite
+#          NO_SDK_CHECK=true WASI=true contrib=false extra=false bash ./cibuild.sh contrib extra node linkweb pglite
 
-      - name : "Upload to GitHub pages"
-        uses: JamesIves/github-pages-deploy-action@v4.4.1
-        with:
-          branch: gh-pages
-          folder: /tmp/web
+      - name: Build postgres WASM via portable-emsdk
+        run: |
+          bash ./ci-16_6_WASM.sh
+
+#      - name : "Upload to GitHub pages"
+#        uses: JamesIves/github-pages-deploy-action@v4.4.1
+#        with:
+#          branch: gh-pages
+#          folder: /tmp/fs/tmp/web
 
       - name: Test pglite
         run: |
