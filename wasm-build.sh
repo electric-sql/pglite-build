@@ -6,7 +6,7 @@ export PG_VERSION=${PG_VERSION:-REL_16_6_WASM}
 #set -e;
 
 export CI=${CI:-false}
-export PORTABLE=${PORTABLE:-$(pwd)/portable}
+export PORTABLE=${PORTABLE:-$(pwd)/wasm-build}
 export SDKROOT=${SDKROOT:-/opt/python-wasm-sdk}
 
 export CMA_MB=${CMA_MB:-32}
@@ -26,7 +26,7 @@ export PGDATA=${PGROOT}/base
 export PGUSER=${PGUSER:-postgres}
 export PGPATCH=${WORKSPACE}/patches
 
-chmod +x ${PORTABLE}/*.sh wasm-build/*.sh wasm-build/extra/*.sh
+chmod +x ${PORTABLE}/*.sh ${PORTABLE}/extra/*.sh
 
 # exit on error
 EOE=false
@@ -34,14 +34,14 @@ EOE=false
 
 if ${PORTABLE}/sdk.sh
 then
-    echo "sdk check passed (emscripten+wasi)"
+    echo "$PORTABLE : sdk check passed (emscripten+wasi)"
 else
     echo sdk failed
-    exit 36
+    exit 40
 fi
 
 
-# the default is a user writeable path.
+# default to a user writeable path.
 if mkdir -p ${PGROOT}/sdk
 then
     echo "checking for valid prefix ${PGROOT}"
@@ -315,7 +315,7 @@ POSIX
 UTF-8
 END
 
-    . wasm-build/pgbuild.sh
+    . ${PORTABLE}/pgbuild.sh
 fi
 
 # put local zic in the path from build dir
@@ -385,7 +385,7 @@ then
                     exit 216
                 fi
                 popd
-                python3 wasm-build/pack_extension.py
+                python3 ${PORTABLE}/pack_extension.py
 
             fi
         fi
@@ -418,7 +418,7 @@ then
 
         ./extra/${extra_ext}.sh || exit 400
 
-        python3 wasm-build/pack_extension.py
+        python3 ${PORTABLE}/pack_extension.py
     done
 fi
 
@@ -462,7 +462,7 @@ then
     # build web version
     echo "========== linkweb : $(pwd) =================="
     pushd build/postgres
-        . $WORKSPACE/wasm-build/linkweb.sh
+        . ${PORTABLE}/linkweb.sh
     popd
 fi
 
@@ -577,7 +577,7 @@ ________________________________________________________________________________
         ;;
 
         demo-site) echo "==================== demo-site =========================="
-            ./wasm-build/demo-site.sh
+            ${PORTABLE}/demo-site.sh
         ;;
     esac
     shift
