@@ -14,12 +14,15 @@ pushd postgresql-${PG_VERSION}
     ${WORKSPACE}/portable/portable.sh
     if [ -f build/postgres/libpglite.a ]
     then
-        pushd build/postgres
-        tar -cpvRz libpglite.a > /tmp/sdk/libpglite-emsdk.tar.gz
-        popd
+        if $CI
+        then
+            pushd build/postgres
+            tar -cpvRz libpglite.a > /tmp/sdk/libpglite-emsdk.tar.gz
+            popd
+        fi
 
 
-        git restore src/test/Makefile src/test/isolation/Makefile
+        # git restore src/test/Makefile src/test/isolation/Makefile
 
         # backup
         [ -d pglite ] && cp -Rv pglite ${WORKSPACE}/

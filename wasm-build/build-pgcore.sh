@@ -95,8 +95,9 @@ else
 #  --disable-atomics https://github.com/WebAssembly/threads/pull/147  "Allow atomic operations on unshared memories"
 
 
-    export PYDK_CFLAGS="${CC_PGLITE} -DPREFIX=${PGROOT} -DPYDK=1"
-    # -Dproc_exit(arg)=pg_proc_exit(arg)"
+    export PYDK_CFLAGS="${CC_PGLITE} -DPG_PREFIX=${PGROOT} -DPYDK=1"
+
+    COMMON_CFLAGS="-sERROR_ON_UNDEFINED_SYMBOLS ${CC_PGLITE} -DPYDK=1 -DPG_PREFIX=${PGROOT} -Wno-declaration-after-statement -Wno-macro-redefined -Wno-unused-function -Wno-missing-prototypes -Wno-incompatible-pointer-types"
 
     if ${WASI}
     then
@@ -106,7 +107,7 @@ else
         UUID=""
 
         WASM_LDFLAGS="-lwasi-emulated-getpid -lwasi-emulated-mman -lwasi-emulated-signal -lwasi-emulated-process-clocks"
-        WASM_CFLAGS="-D_WASI_EMULATED_MMAN -D_WASI_EMULATED_SIGNAL -D_WASI_EMULATED_PROCESS_CLOCKS -D_WASI_EMULATED_GETPID  -Wno-declaration-after-statement -Wno-macro-redefined -Wno-unused-function -Wno-missing-prototypes -Wno-incompatible-pointer-types"
+        WASM_CFLAGS="${COMMON_CFLAGS} -D_WASI_EMULATED_MMAN -D_WASI_EMULATED_SIGNAL -D_WASI_EMULATED_PROCESS_CLOCKS -D_WASI_EMULATED_GETPID"
         export MAIN_MODULE=""
     else
         BUILD=emscripten
@@ -120,7 +121,7 @@ else
             XML2="--with-zlib --with-libxml --with-libxslt"
         fi
         UUID="--with-uuid=ossp"
-        WASM_CFLAGS="-sERROR_ON_UNDEFINED_SYMBOLS ${CC_PGLITE} -DPYDK=1 -DPREFIX=${PGROOT} -Wno-declaration-after-statement -Wno-macro-redefined -Wno-unused-function -Wno-missing-prototypes -Wno-incompatible-pointer-types"
+        WASM_CFLAGS="${COMMON_FLAGS}"
         WASM_LDFLAGS=""
         export MAIN_MODULE="-sMAIN_MODULE=1"
     fi
@@ -294,7 +295,7 @@ END
 
     # Keep a shell script for fast rebuild with env -i from cmdline
 
-    cat > pg-make.sh.sh <<END
+    cat > pg-make.sh <<END
 #!/bin/bash
 . /opt/python-wasm-sdk/wasm32-bi-emscripten-shell.sh
 export PATH=$PGROOT/bin:\$PATH
@@ -303,9 +304,9 @@ export PATH=$PGROOT/bin:\$PATH
 # ${PGROOT}/pgopts.sh
 
 END
-    cat ${PGROOT}/pgopts.sh >> pg-make.sh.sh
+    cat ${PGROOT}/pgopts.sh >> pg-make.sh
 
-    cat >> pg-make.sh.sh <<END
+    cat >> pg-make.sh <<END
 
 # linker stage
 echo '
@@ -324,7 +325,7 @@ echo '____________________________________________________________'
 END
 
 
-    cat > pg-link.sh.sh <<END
+    cat > pg-link.sh <<END
 #!/bin/bash
 . /opt/python-wasm-sdk/wasm32-bi-emscripten-shell.sh
 AR=${EMSDK}/upstream/bin/llvm-ar
@@ -349,9 +350,9 @@ END
 
 
 
-    chmod +x pg-make.sh.sh pg-link.sh.sh
+    chmod +x pg-make.sh pg-link.sh
 
-    if env -i ./pg-make.sh.sh install
+    if env -i ./pg-make.sh install
     then
         echo install ok
         if $WASI
