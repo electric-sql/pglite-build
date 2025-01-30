@@ -40,10 +40,6 @@ jobs:
         run: |
           bash ./ci-16_6_WASM.sh
 
-#      - name: Build postgres WASM via poswasi-sdk
-#        run: |
-#          NO_SDK_CHECK=true WASI=true contrib=false extra=false bash ./cibuild.sh contrib extra node linkweb pglite
-
       - name: Upload sdk to Github Releases
         if: github.event_name == 'release'
         uses: svenstaro/upload-release-action@2.9.0
