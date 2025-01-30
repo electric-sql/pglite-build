@@ -82,10 +82,10 @@ PDEBUG("# 47");
 
 	/* Set default values for command-line options.	 */
 	InitializeGUCOptions();
-PDEBUG("# 53");
+
 	/* Parse command-line options. */
 	process_postgres_switches(argc, argv, PGC_POSTMASTER, &dbname);
-PDEBUG("# 56");
+
 	/* Must have gotten a database name, or have a default (the username) */
 	if (dbname == NULL)
 	{
@@ -122,7 +122,7 @@ if (async_restart) goto async_db_change;
 
 	/* Initialize MaxBackends */
 	InitializeMaxBackends();
-PDEBUG("# 91");
+PDEBUG("# 91"); /* on_shmem_exit stubs call start here */
 	/*
 	 * Give preloaded libraries a chance to request additional shared memory.
 	 */
@@ -719,7 +719,7 @@ pg_initdb() {
                 optind = 1;
                 AsyncPostgresSingleUserMain(single_argc, single_argv, strdup(getenv("PGUSER")), async_restart);
             }
-            BREAKV(IDB_FAILED);
+
             goto initdb_done;
         }
     	chdir("/");
