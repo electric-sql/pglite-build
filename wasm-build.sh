@@ -80,13 +80,13 @@ System node/pnpm ( may interfer) :
 
 
 
-# setup compiler+node. emsdk provides node (18), recent enough for bun.
+# setup compiler+node. emsdk provides node 20, recent enough for bun.
 # TODO: but may need to adjust $PATH with stock emsdk.
 
 if ${WASI:-false}
 then
     echo "Wasi build (experimental)"
-    export WASI_SDK=24.0
+    export WASI_SDK=25.0
     export WASI_SDK_PREFIX=/opt/python-wasm-sdk/wasisdk/wasi-sdk-${WASI_SDK}-x86_64-linux
     export WASI_SYSROOT=${WASI_SDK_PREFIX}/share/wasi-sysroot
 
@@ -302,6 +302,10 @@ pgac_cv_sse42_crc32_intrinsics__msse4_2=no
 pgac_sse42_crc32_intrinsics=no
 pgac_armv8_crc32c_intrinsics=no
 ac_cv_search_sem_open=no
+
+with_uuid=ossp
+ac_cv_lib_ossp_uuid_uuid_export=yes
+ac_cv_lib_uuid_uuid_generate=no
 END
 
 

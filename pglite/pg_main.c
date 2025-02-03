@@ -63,7 +63,9 @@ volatile bool send_ready_for_query = true;
 volatile bool idle_in_transaction_timeout_enabled = false;
 volatile bool idle_session_timeout_enabled = false;
 bool quote_all_identifiers = false;
-#   include "../backend/tcop/postgres.c"
+
+#include "../backend/tcop/postgres.c"
+
 void
 PostgresMain(const char *dbname, const char *username) {
     // unused
@@ -75,7 +77,7 @@ void
 AsyncPostgresSingleUserMain(int argc, char *argv[], const char *username, int async_restart)
 {
 	const char *dbname = NULL;
-PDEBUG("# 47");
+PDEBUG("# 80");
 
 	/* Initialize startup process environment. */
 	InitStandaloneProcess(argv[0]);
@@ -122,7 +124,7 @@ if (async_restart) goto async_db_change;
 
 	/* Initialize MaxBackends */
 	InitializeMaxBackends();
-PDEBUG("# 91"); /* on_shmem_exit stubs call start here */
+PDEBUG("# 127"); /* on_shmem_exit stubs call start here */
 	/*
 	 * Give preloaded libraries a chance to request additional shared memory.
 	 */
@@ -162,7 +164,7 @@ PDEBUG("# 91"); /* on_shmem_exit stubs call start here */
 	BaseInit();
 async_db_change:;
 
-PDEBUG("# 130");
+PDEBUG("# 167");
 	/*
 	 * General initialization.
 	 *
@@ -393,8 +395,13 @@ interactive_read() {
 }
 
 
-// #include "./interactive_one_wasi.c"
-#include "./interactive_one_emsdk.c"
+#if defined(__wasi__)
+#   include "./interactive_one_wasi.c"
+#else
+#   include "./interactive_one_emsdk.c"
+#endif
+
+
 
 
 #define STROPS_BUF 1024
@@ -512,10 +519,11 @@ extra_env:;
         // set defautl
     	setenv("PGDATA", WASM_PGDATA , 0);
         PGDATA = getenv("PGDATA");
+#if PGDEBUG
 puts("    ----------- test ----------------" );
         puts(PGDATA);
 puts("    ----------- /test ----------------" );
-
+#endif
     }
 
 
@@ -533,7 +541,7 @@ puts("    ----------- /test ----------------" );
             console.warn("prerun(C-node) worker=", Module.is_worker);
 #endif
             Module['postMessage'] = function custom_postMessage(event) {
-                console.log("# pg_main_emsdk.c:944: onCustomMessage:", event);
+                console.log("# pg_main_emsdk.c:544: onCustomMessage:", event);
             };
         });
 
@@ -684,7 +692,7 @@ __attribute__((export_name("pg_initdb")))
 #endif
 int
 pg_initdb() {
-    PDEBUG("# 680: pg_initdb()");
+    PDEBUG("# 695: pg_initdb()");
     optind = 1;
     int async_restart = 1;
     pg_idb_status |= IDB_FAILED;
@@ -759,7 +767,7 @@ pg_initdb() {
         BootstrapModeMain(boot_argc, boot_argv, false);
         fclose(stdin);
 #if PGDEBUG
-        puts("# 886: keep " IDB_PIPE_BOOT );
+        puts("# 770: keep " IDB_PIPE_BOOT );
 #else
         remove(IDB_PIPE_BOOT);
 #endif
@@ -780,7 +788,7 @@ pg_initdb() {
     }
 
     {
-        PDEBUG("# 889: restarting in single mode for initdb");
+        PDEBUG("# 791: restarting in single mode for initdb");
 
         char *single_argv[] = {
             WASM_PREFIX "/bin/postgres",
@@ -840,7 +848,7 @@ main_repl() {
 #endif
         #if defined(PG_INITDB_MAIN)
             #warning "web build"
-puts("1168");
+puts("# 851");
             hadloop_error = pg_initdb() & IDB_FAILED;
         #else
             #warning "node build"
@@ -959,12 +967,12 @@ main(int argc, char **argv)
         return 0;
     }
 
-    PDEBUG("# 1292: repl");
+    PDEBUG("# 970: repl");
     // so it is repl
     main_repl();
 
     if (is_node) {
-        PDEBUG("# 1296: node repl");
+        PDEBUG("# 975: node repl");
         pg_repl_raf();
     }
 

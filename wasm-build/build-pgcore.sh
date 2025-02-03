@@ -131,6 +131,9 @@ else
 
     cp ${PGSRC}/src/include/port/wasm_common.h /tmp/pglite/include/wasm_common.h
 
+    [ -f ${PREFIX}/devices/emsdk/usr/lib/libossp-uuid.a ] && rm ${PREFIX}/devices/emsdk/usr/lib/libossp-uuid.a
+    [ -f ${PREFIX}/devices/emsdk/usr/lib/libouuid.a ] && rm ${PREFIX}/devices/emsdk/usr/lib/libuuid.a
+
 
     CNF="${PGSRC}/configure --prefix=${PGROOT} --cache-file=${PGROOT}/config.cache.${BUILD} \
  --disable-spinlocks --disable-largefile --without-llvm \

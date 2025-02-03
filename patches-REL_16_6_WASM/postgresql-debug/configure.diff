@@ -1,6 +1,8 @@
---- pgw-REL_16_6_WASM/configure
-+++ postgres/configure
-@@ -4322,7 +4322,7 @@
+diff --git a/configure b/configure
+index 2d5f6a68ff..a66ac06e96 100755
+--- a/configure
++++ b/configure
+@@ -4322,7 +4322,7 @@ else
    ac_save_c_werror_flag=$ac_c_werror_flag
     ac_c_werror_flag=yes
     ac_cv_prog_cc_g=no
@@ -9,7 +11,7 @@
     cat confdefs.h - <<_ACEOF >conftest.$ac_ext
  /* end confdefs.h.  */
  
-@@ -4353,7 +4353,7 @@
+@@ -4353,7 +4353,7 @@ if ac_fn_c_try_compile "$LINENO"; then :
  
  else
    ac_c_werror_flag=$ac_save_c_werror_flag
@@ -18,7 +20,7 @@
  	 cat confdefs.h - <<_ACEOF >conftest.$ac_ext
  /* end confdefs.h.  */
  
-@@ -4381,13 +4381,13 @@
+@@ -4381,13 +4381,13 @@ if test "$ac_test_CFLAGS" = set; then
    CFLAGS=$ac_save_CFLAGS
  elif test $ac_cv_prog_cc_g = yes; then
    if test "$GCC" = yes; then
@@ -35,7 +37,7 @@
    else
      CFLAGS=
    fi
-@@ -4853,7 +4853,7 @@
+@@ -4853,7 +4853,7 @@ else
    ac_save_cxx_werror_flag=$ac_cxx_werror_flag
     ac_cxx_werror_flag=yes
     ac_cv_prog_cxx_g=no
@@ -44,7 +46,7 @@
     cat confdefs.h - <<_ACEOF >conftest.$ac_ext
  /* end confdefs.h.  */
  
-@@ -4884,7 +4884,7 @@
+@@ -4884,7 +4884,7 @@ if ac_fn_cxx_try_compile "$LINENO"; then :
  
  else
    ac_cxx_werror_flag=$ac_save_cxx_werror_flag
@@ -53,7 +55,7 @@
  	 cat confdefs.h - <<_ACEOF >conftest.$ac_ext
  /* end confdefs.h.  */
  
-@@ -4912,13 +4912,13 @@
+@@ -4912,13 +4912,13 @@ if test "$ac_test_CXXFLAGS" = set; then
    CXXFLAGS=$ac_save_CXXFLAGS
  elif test $ac_cv_prog_cxx_g = yes; then
    if test "$GXX" = yes; then
@@ -70,7 +72,7 @@
    else
      CXXFLAGS=
    fi
-@@ -5278,11 +5278,11 @@
+@@ -5278,11 +5278,11 @@ elif test "${CFLAGS+set}" = set; then
  elif test "$enable_coverage" = yes; then
    : # no optimization by default
  elif test "$GCC" = yes; then
@@ -84,7 +86,7 @@
    fi
  fi
  
-@@ -5293,11 +5293,11 @@
+@@ -5293,11 +5293,11 @@ elif test "${CXXFLAGS+set}" = set; then
  elif test "$enable_coverage" = yes; then
    : # no optimization by default
  elif test "$GCC" = yes; then
@@ -98,7 +100,7 @@
    fi
  fi
  
-@@ -5310,12 +5310,12 @@
+@@ -5310,12 +5310,12 @@ fi
  if test "$ac_env_BITCODE_CFLAGS_set" = set; then
    BITCODE_CFLAGS=$ac_env_BITCODE_CFLAGS_value
  else
@@ -113,7 +115,7 @@
  fi
  
  # C[XX]FLAGS we determined above will be added back at the end
-@@ -7826,11 +7826,11 @@
+@@ -7826,11 +7826,11 @@ fi
  
  # supply -g if --enable-debug
  if test "$enable_debug" = yes && test "$ac_cv_prog_cc_g" = yes; then
@@ -127,3 +129,21 @@
  fi
  
  # enable code coverage if --enable-coverage
+@@ -13588,7 +13588,7 @@ cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+ #ifdef __cplusplus
+ extern "C"
+ #endif
+-char uuid_export ();
++extern char uuid_export ();
+ int
+ main ()
+ {
+@@ -13650,7 +13650,7 @@ $as_echo "$ac_cv_lib_uuid_uuid_export" >&6; }
+ if test "x$ac_cv_lib_uuid_uuid_export" = xyes; then :
+   UUID_LIBS="-luuid"
+ else
+-  as_fn_error $? "library 'ossp-uuid' or 'uuid' is required for OSSP UUID" "$LINENO" 5
++  ac_cv_lib_ossp_uuid_uuid_export=yes
+ fi
+ 
+ fi
