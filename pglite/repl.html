@@ -72,10 +72,13 @@
     window.initModule = initModule //(Module)
 
 async function pglite_conf(vm, kv) {
+
     var lines = vm.os.codec.decode(vm.FS.readFile(vm.PGDATA + "/postgresql.conf")).split('\n');
 
     var buf = []
     var newlines = [];
+
+    return;
 
     for (var k in kv)
     {
@@ -113,6 +116,7 @@ async function pglite_conf(vm, kv) {
     }
     if (newlines.length) {
         buf.push(...newlines)
+console.log("BUF", buf)
         vm.FS.writeFile( vm.PGDATA + "/postgresql.conf", buf.join("") )
         vm.FS.syncfs(false, (e) => { if (e) console.error("pglite_conf error:", e)})
     }

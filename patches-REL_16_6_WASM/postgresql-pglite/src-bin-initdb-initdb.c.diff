@@ -1,5 +1,7 @@
---- pgw-REL_16_6_WASM/src/bin/initdb/initdb.c
-+++ postgres/src/bin/initdb/initdb.c
+diff --git a/src/bin/initdb/initdb.c b/src/bin/initdb/initdb.c
+index 3dbade0ea3..3786345c82 100644
+--- a/src/bin/initdb/initdb.c
++++ b/src/bin/initdb/initdb.c
 @@ -45,7 +45,7 @@
   *
   *-------------------------------------------------------------------------
@@ -17,7 +19,7 @@
  /* Ideally this would be in a .h file, but it hardly seems worth the trouble */
  extern const char *select_default_timezone(const char *share_path);
  
-@@ -168,7 +167,11 @@
+@@ -168,7 +167,11 @@ static int	wal_segment_size_mb;
  
  
  /* internal vars */
@@ -29,7 +31,7 @@
  static int	encodingid;
  static char *bki_file;
  static char *hba_file;
-@@ -807,6 +810,7 @@
+@@ -807,6 +810,7 @@ cleanup_directories_atexit(void)
  static char *
  get_id(void)
  {
@@ -37,7 +39,7 @@
  	const char *username;
  
  #ifndef WIN32
-@@ -817,10 +821,12 @@
+@@ -817,10 +821,12 @@ get_id(void)
  		exit(1);
  	}
  #endif
@@ -51,7 +53,7 @@
  }
  
  static char *
-@@ -1066,6 +1072,9 @@
+@@ -1066,6 +1072,9 @@ set_null_conf(void)
  static const char *
  choose_dsm_implementation(void)
  {
@@ -61,7 +63,7 @@
  #if defined(HAVE_SHM_OPEN) && !defined(__sun__)
  	int			ntries = 10;
  	pg_prng_state prng_state;
-@@ -1670,9 +1679,11 @@
+@@ -1670,9 +1679,11 @@ get_su_pwd(void)
  			if (ferror(pwf))
  				pg_fatal("could not read password from file \"%s\": %m",
  						 pwfilename);
@@ -75,7 +77,7 @@
  		}
  		fclose(pwf);
  
-@@ -2615,8 +2626,13 @@
+@@ -2615,8 +2626,13 @@ setup_bin_paths(const char *argv0)
  			strlcpy(full_path, progname, sizeof(full_path));
  
  		if (ret == -1)
@@ -89,7 +91,7 @@
  		else
  			pg_fatal("program \"%s\" was found by \"%s\" but was not the same version as %s",
  					 "postgres", full_path, progname);
-@@ -2670,22 +2686,22 @@
+@@ -2670,22 +2686,22 @@ setup_locale_encoding(void)
  			   lc_numeric,
  			   lc_time);
  	}
@@ -117,7 +119,7 @@
  			/* Couldn't recognize the locale's codeset */
  			pg_log_error("could not find suitable encoding for locale \"%s\"",
  						 lc_ctype);
-@@ -2694,7 +2710,7 @@
+@@ -2694,7 +2710,7 @@ setup_locale_encoding(void)
  			exit(1);
  		}
  		else if (!pg_valid_server_encoding_id(ctype_enc))
@@ -126,7 +128,7 @@
  			/*
  			 * We recognized it, but it's not a legal server encoding. On
  			 * Windows, UTF-8 works with any locale, so we can fall back to
-@@ -2717,15 +2733,17 @@
+@@ -2717,15 +2733,17 @@ setup_locale_encoding(void)
  #endif
  		}
  		else
@@ -147,7 +149,7 @@
  	if (!check_locale_encoding(lc_ctype, encodingid) ||
  		!check_locale_encoding(lc_collate, encodingid))
  		exit(1);				/* check_locale_encoding printed the error */
-@@ -3044,7 +3062,11 @@
+@@ -3044,7 +3062,11 @@ initialize_data_directory(void)
  
  	/* Select suitable configuration settings */
  	set_null_conf();
@@ -159,38 +161,56 @@
  
  	/* Now create all the text config files */
  	setup_config();
-@@ -3109,9 +3131,30 @@
+@@ -3109,10 +3131,46 @@ initialize_data_directory(void)
  	check_ok();
  }
  
 +#if defined(PG_INITDB_MAIN)
- 
++
 +extern void MemoryContextInit(void);
-+
-+// FIXME: get PGDATA from env.
-+char *argv[] = {
-+    WASM_PREFIX "/bin/initdb",
-+//    "--no-clean",
-+    "--wal-segsize=1",
-+    "-g",
-+    "-E", "UTF8", "--locale=C.UTF-8", "--locale-provider=libc",
-+    "-U", WASM_USERNAME, "--pwfile=" WASM_PREFIX "/password",
-+    "--pgdata=" WASM_PREFIX "/base",
-+    NULL
-+};
-+
-+int argc = sizeof(argv) / sizeof(char*) - 1;
-+
-+EMSCRIPTEN_KEEPALIVE int
-+pg_initdb_main()
-+#else
++extern const char *PREFIX;
++extern const char *PGDATA;
++char * strcat_alloc(const char *head, const char *tail);
++void strconcat(char*p, const char *head, const char *tail);
+ 
  int
- main(int argc, char *argv[])
+-main(int argc, char *argv[])
+-{
++pg_initdb_main() {
++    char tmp[1024];
++    char *pwfile = NULL;
++    char *pgdata = NULL;
++
++    strconcat(tmp, "--pwfile=", PREFIX);
++    pwfile = strcat_alloc(tmp, "/password");
++
++
++    strconcat(tmp, "--pwfile=", PREFIX);
++    pgdata = strcat_alloc("--pgdata=", PGDATA);
++
++    char *argv[] = {
++        strcat_alloc(PREFIX,"/bin/initdb"),
++    //    "--no-clean",
++        "--wal-segsize=1",
++        "-g",
++        "-E", "UTF8", "--locale=C.UTF-8", "--locale-provider=libc",
++        "-U", WASM_USERNAME, pwfile,  //"--pwfile=" WASM_PREFIX "/password",
++        pgdata, // "--pgdata=" WASM_PREFIX "/base",
++        NULL
++    };
++
++    int argc = sizeof(argv) / sizeof(char*) - 1;
++
++
++#else
++int
++main(int argc, char *argv[]) {
 +#endif
- {
++
  	static struct option long_options[] = {
  		{"pgdata", required_argument, NULL, 'D'},
-@@ -3171,10 +3214,16 @@
+ 		{"encoding", required_argument, NULL, 'E'},
+@@ -3171,10 +3229,16 @@ main(int argc, char *argv[])
  	 */
  	setvbuf(stdout, NULL, PG_IOLBF, 0);
  
@@ -208,7 +228,7 @@
  	if (argc > 1)
  	{
  		if (strcmp(argv[1], "--help") == 0 || strcmp(argv[1], "-?") == 0)
-@@ -3430,11 +3479,11 @@
+@@ -3430,11 +3494,11 @@ main(int argc, char *argv[])
  	set_info_version();
  
  	setup_data_file_paths();
@@ -223,7 +243,7 @@
  	printf("\n");
  
  	if (data_checksums)
-@@ -3446,9 +3495,11 @@
+@@ -3446,9 +3510,11 @@ main(int argc, char *argv[])
  		get_su_pwd();
  
  	printf("\n");
@@ -237,7 +257,7 @@
  	if (do_sync)
  	{
  		fputs(_("syncing data to disk ... "), stdout);
-@@ -3466,7 +3517,7 @@
+@@ -3466,7 +3532,7 @@ main(int argc, char *argv[])
  		pg_log_warning_hint("You can change this by editing pg_hba.conf or using the option -A, or "
  							"--auth-local and --auth-host, the next time you run initdb.");
  	}
@@ -246,7 +266,7 @@
  	if (!noinstructions)
  	{
  		/*
-@@ -3501,8 +3552,7 @@
+@@ -3501,8 +3567,7 @@ main(int argc, char *argv[])
  
  		destroyPQExpBuffer(start_db_cmd);
  	}
