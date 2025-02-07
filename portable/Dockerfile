@@ -1,4 +1,4 @@
-ENV SDKURL https://github.com/pygame-web/portable-sdk/releases/download/3.1.74.4bi/python3.13-wasm-sdk-alpine-3.21.tar.lz4
+ENV SDKURL https://github.com/pygame-web/portable-sdk/releases/download/3.1.74.5bi/python3.13-wasm-sdk-alpine-3.21.tar.lz4
 ENV SDKROOT /opt/python-wasm-sdk
 ENV PIP_ROOT_USER_ACTION ignore
 ENV PIP_NO_CACHE_DIR 1
