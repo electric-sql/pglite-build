@@ -1,3 +1,5 @@
+#define PGL_MAIN
+#define PGL_INITDB_MAIN
 
 // ----------------------- pglite ----------------------------
 #include "postgres.h"
@@ -42,7 +44,7 @@ extern bool IsPostmasterEnvironment;
 #define BREAK { printf("BREAK : %d\n",__LINE__);return; }
 
 
-extern int pg_initdb_main(void);
+extern int pgl_initdb_main(void);
 extern void pg_proc_exit(int code);
 extern int BootstrapModeMain(int, char **, int);
 
@@ -61,18 +63,18 @@ extern int BootstrapModeMain(int, char **, int);
 
 
 
-#define PATCH_MAIN
+
 volatile bool send_ready_for_query = true;
 volatile bool idle_in_transaction_timeout_enabled = false;
 volatile bool idle_session_timeout_enabled = false;
+/*
 bool quote_all_identifiers = false;
+FILE* SOCKET_FILE = NULL;
+int SOCKET_DATA = 0;
+*/
 
 #include "../backend/tcop/postgres.c"
 
-void
-PostgresMain(const char *dbname, const char *username) {
-    // unused
-}
 
 // static StringInfoData row_description_buf;
 
@@ -253,121 +255,13 @@ PDEBUG("# 167");
 	MemoryContextSwitchTo(TopMemoryContext);
 } // AsyncPostgresSingleUserMain
 
+#include "pgl_os.h"
 
-static void
-init_locale(const char *categoryname, int category, const char *locale)
-{
-	if (pg_perm_setlocale(category, locale) == NULL &&
-		pg_perm_setlocale(category, "C") == NULL)
-		elog(FATAL, "could not adopt \"%s\" locale nor C locale for %s",
-			 locale, categoryname);
-}
-
-
-
-void
-startup_hacks(const char *progname) {
-    SpinLockInit(&dummy_spinlock);
-}
-
-
-void
-RePostgresSingleUserMain(int single_argc, char *single_argv[], const char *username) {
-    puts("RePostgresSingleUserMain: STUB");
-}
-
-void pg_repl_raf() {
-    puts("pg_repl_raf: STUB");
-}
-
-
-#undef PDEBUG
-#define PDEBUG(string) puts(string)
-
-
-
-#if defined(__wasi__) || defined(__EMSCRIPTEN__)
-
-// embedded initdb requirements
-
-void
-get_restricted_token(void) {
-    // stub
-}
-
-void *
-pg_malloc(size_t size) {
-	return malloc(size);
-}
-
-void *
-pg_malloc_extended(size_t size, int flags) {
-    return malloc(size);
-}
-
-void *
-pg_realloc(void *ptr, size_t size) {
-    return realloc(ptr, size);
-}
-
-char *
-pg_strdup(const char *in) {
-	char	   *tmp;
-
-	if (!in)
-	{
-		fprintf(stderr,
-				_("cannot duplicate null pointer (internal error)\n"));
-		exit(EXIT_FAILURE);
-	}
-	tmp = strdup(in);
-	if (!tmp)
-	{
-		fprintf(stderr, _("out of memory\n"));
-		exit(EXIT_FAILURE);
-	}
-	return tmp;
-}
-
-
-char *
-simple_prompt(const char *prompt, bool echo) {
-    return pg_strdup("");
-}
+#include "pgl_stubs.h"
 
 #include "pgl_tools.h"
 
-
-
-#   define PG_INITDB_MAIN
-#   define PG_MAIN
-
-#if !defined(PG_LINKWEB)
-#   define FRONTEND
-#   include "../postgresql/src/common/logging.c"
-#   undef FRONTEND
-#endif
-
-#   define icu_language_tag(loc_str) icu_language_tag_idb(loc_str)
-#   define icu_validate_locale(loc_str) icu_validate_locale_idb(loc_str)
-
-#if !defined(PG_LINKWEB)
-#   include "../postgresql/src/interfaces/libpq/pqexpbuffer.c"
-#endif
-#   define fsync_pgdata(...)
-
-#   include "../postgresql/src/bin/initdb/initdb.c"
-
-    void use_socketfile(void) {
-        is_repl = true;
-        is_embed = false;
-    }
-#undef PG_INITDB_MAIN
-#undef PG_MAIN
-
-#endif // __wasi__
-
-
+#include "pgl_initdb.c"
 
 
 // interactive_one
@@ -376,7 +270,7 @@ static bool force_echo = false;
 
 /* TODO : prevent multiple write and write while reading ? */
 volatile int cma_wsize = 0;
-volatile int cma_rsize = 0;
+volatile int cma_rsize = 0;  // defined in postgres.c
 
 
 
@@ -687,9 +581,9 @@ pg_initdb() {
 
 #if PGDEBUG
     PDEBUG("# 1080");
-    printf("# pg_initdb_main result = %d\n", pg_initdb_main() );
+    printf("# pgl_initdb_main result = %d\n", pgl_initdb_main() );
 #else
-    pg_initdb_main();
+    pgl_initdb_main();
 #endif // PGDEBUG
 
     /* save stdin and use previous initdb output to feed boot mode */

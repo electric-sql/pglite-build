@@ -74,7 +74,7 @@ ________________________________________________________
     # $INC \
     # -o ${PGBUILD}/pgcore.o -c ${PGSRC}/src/backend/tcop/postgres.c
 
-    ${CC} -DCMA_MB=32  \
+    ${CC} -DCMA_MB=32 -DPG_MAIN \
      ${PGINC} \
      -o ${PGBUILD}/pglite.o -c ${WORKSPACE}/pglite/pg_main.c
 

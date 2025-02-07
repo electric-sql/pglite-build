@@ -28,6 +28,8 @@ export PGPATCH=${WORKSPACE}/patches
 
 chmod +x ${PORTABLE}/*.sh ${PORTABLE}/extra/*.sh
 
+[ -f /portable.opts ] && . /portable.opts
+
 # exit on error
 EOE=false
 
