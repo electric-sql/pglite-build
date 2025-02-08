@@ -1,16 +1,5 @@
-diff --git a/src/bin/initdb/initdb.c b/src/bin/initdb/initdb.c
-index 3dbade0ea3..3786345c82 100644
---- a/src/bin/initdb/initdb.c
-+++ b/src/bin/initdb/initdb.c
-@@ -45,7 +45,7 @@
-  *
-  *-------------------------------------------------------------------------
-  */
--
-+#define PG_INITDB
- #include "postgres_fe.h"
- 
- #include <dirent.h>
+--- REL_16_6/src/bin/initdb/initdb.c
++++ pglite-REL_16_6/src/bin/initdb/initdb.c
 @@ -81,7 +81,6 @@
  #include "mb/pg_wchar.h"
  #include "miscadmin.h"
@@ -19,11 +8,11 @@ index 3dbade0ea3..3786345c82 100644
  /* Ideally this would be in a .h file, but it hardly seems worth the trouble */
  extern const char *select_default_timezone(const char *share_path);
  
-@@ -168,7 +167,11 @@ static int	wal_segment_size_mb;
+@@ -168,7 +167,11 @@
  
  
  /* internal vars */
-+#if !defined(PG_MAIN)
++#if !defined(PGL_MAIN)
  static const char *progname;
 +#else
 +#   define dynamic_shared_memory_type idb_dynamic_shared_memory_type
@@ -31,7 +20,7 @@ index 3dbade0ea3..3786345c82 100644
  static int	encodingid;
  static char *bki_file;
  static char *hba_file;
-@@ -807,6 +810,7 @@ cleanup_directories_atexit(void)
+@@ -807,6 +810,7 @@
  static char *
  get_id(void)
  {
@@ -39,7 +28,7 @@ index 3dbade0ea3..3786345c82 100644
  	const char *username;
  
  #ifndef WIN32
-@@ -817,10 +821,12 @@ get_id(void)
+@@ -817,10 +821,12 @@
  		exit(1);
  	}
  #endif
@@ -53,7 +42,7 @@ index 3dbade0ea3..3786345c82 100644
  }
  
  static char *
-@@ -1066,6 +1072,9 @@ set_null_conf(void)
+@@ -1066,6 +1072,9 @@
  static const char *
  choose_dsm_implementation(void)
  {
@@ -63,7 +52,7 @@ index 3dbade0ea3..3786345c82 100644
  #if defined(HAVE_SHM_OPEN) && !defined(__sun__)
  	int			ntries = 10;
  	pg_prng_state prng_state;
-@@ -1670,9 +1679,11 @@ get_su_pwd(void)
+@@ -1670,9 +1679,11 @@
  			if (ferror(pwf))
  				pg_fatal("could not read password from file \"%s\": %m",
  						 pwfilename);
@@ -77,7 +66,7 @@ index 3dbade0ea3..3786345c82 100644
  		}
  		fclose(pwf);
  
-@@ -2615,8 +2626,13 @@ setup_bin_paths(const char *argv0)
+@@ -2615,8 +2626,13 @@
  			strlcpy(full_path, progname, sizeof(full_path));
  
  		if (ret == -1)
@@ -91,7 +80,7 @@ index 3dbade0ea3..3786345c82 100644
  		else
  			pg_fatal("program \"%s\" was found by \"%s\" but was not the same version as %s",
  					 "postgres", full_path, progname);
-@@ -2670,22 +2686,22 @@ setup_locale_encoding(void)
+@@ -2670,22 +2686,22 @@
  			   lc_numeric,
  			   lc_time);
  	}
@@ -119,7 +108,7 @@ index 3dbade0ea3..3786345c82 100644
  			/* Couldn't recognize the locale's codeset */
  			pg_log_error("could not find suitable encoding for locale \"%s\"",
  						 lc_ctype);
-@@ -2694,7 +2710,7 @@ setup_locale_encoding(void)
+@@ -2694,7 +2710,7 @@
  			exit(1);
  		}
  		else if (!pg_valid_server_encoding_id(ctype_enc))
@@ -128,7 +117,7 @@ index 3dbade0ea3..3786345c82 100644
  			/*
  			 * We recognized it, but it's not a legal server encoding. On
  			 * Windows, UTF-8 works with any locale, so we can fall back to
-@@ -2717,15 +2733,17 @@ setup_locale_encoding(void)
+@@ -2717,15 +2733,17 @@
  #endif
  		}
  		else
@@ -149,7 +138,7 @@ index 3dbade0ea3..3786345c82 100644
  	if (!check_locale_encoding(lc_ctype, encodingid) ||
  		!check_locale_encoding(lc_collate, encodingid))
  		exit(1);				/* check_locale_encoding printed the error */
-@@ -3044,7 +3062,11 @@ initialize_data_directory(void)
+@@ -3044,7 +3062,11 @@
  
  	/* Select suitable configuration settings */
  	set_null_conf();
@@ -161,12 +150,12 @@ index 3dbade0ea3..3786345c82 100644
  
  	/* Now create all the text config files */
  	setup_config();
-@@ -3109,10 +3131,46 @@ initialize_data_directory(void)
+@@ -3109,10 +3131,46 @@
  	check_ok();
  }
  
-+#if defined(PG_INITDB_MAIN)
-+
++/* pglite entry point */
++#if defined(PGL_INITDB_MAIN)
 +extern void MemoryContextInit(void);
 +extern const char *PREFIX;
 +extern const char *PGDATA;
@@ -176,7 +165,7 @@ index 3dbade0ea3..3786345c82 100644
  int
 -main(int argc, char *argv[])
 -{
-+pg_initdb_main() {
++pgl_initdb_main() {
 +    char tmp[1024];
 +    char *pwfile = NULL;
 +    char *pgdata = NULL;
@@ -210,11 +199,11 @@ index 3dbade0ea3..3786345c82 100644
  	static struct option long_options[] = {
  		{"pgdata", required_argument, NULL, 'D'},
  		{"encoding", required_argument, NULL, 'E'},
-@@ -3171,10 +3229,16 @@ main(int argc, char *argv[])
+@@ -3171,10 +3229,16 @@
  	 */
  	setvbuf(stdout, NULL, PG_IOLBF, 0);
  
-+#if defined(PG_INITDB_MAIN)
++#if defined(PGL_INITDB_MAIN)
 +	progname = get_progname(argv[0]);
 +//    printf("calling pg_initdb_main for %s\n", progname);
 +    MemoryContextInit();
@@ -228,7 +217,7 @@ index 3dbade0ea3..3786345c82 100644
  	if (argc > 1)
  	{
  		if (strcmp(argv[1], "--help") == 0 || strcmp(argv[1], "-?") == 0)
-@@ -3430,11 +3494,11 @@ main(int argc, char *argv[])
+@@ -3430,11 +3494,11 @@
  	set_info_version();
  
  	setup_data_file_paths();
@@ -243,7 +232,7 @@ index 3dbade0ea3..3786345c82 100644
  	printf("\n");
  
  	if (data_checksums)
-@@ -3446,9 +3510,11 @@ main(int argc, char *argv[])
+@@ -3446,9 +3510,11 @@
  		get_su_pwd();
  
  	printf("\n");
@@ -251,13 +240,13 @@ index 3dbade0ea3..3786345c82 100644
 +puts("# 3458");
  	initialize_data_directory();
 -
-+#if defined(PG_INITDB_MAIN)
++#if defined(PGL_INITDB_MAIN)
 +    puts("# 3461: TODO: fsync_pgdata ?");
 +#else
  	if (do_sync)
  	{
  		fputs(_("syncing data to disk ... "), stdout);
-@@ -3466,7 +3532,7 @@ main(int argc, char *argv[])
+@@ -3466,7 +3532,7 @@
  		pg_log_warning_hint("You can change this by editing pg_hba.conf or using the option -A, or "
  							"--auth-local and --auth-host, the next time you run initdb.");
  	}
@@ -266,7 +255,7 @@ index 3dbade0ea3..3786345c82 100644
  	if (!noinstructions)
  	{
  		/*
-@@ -3501,8 +3567,7 @@ main(int argc, char *argv[])
+@@ -3501,8 +3567,7 @@
  
  		destroyPQExpBuffer(start_db_cmd);
  	}

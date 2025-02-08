@@ -1,6 +1,12 @@
 #define PGL_MAIN
 #define PGL_INITDB_MAIN
 
+// MEMFS files for os pipe simulation
+#define IDB_PIPE_BOOT "/tmp/initdb.boot.txt"
+#define IDB_PIPE_SINGLE "/tmp/initdb.single.txt"
+
+#include "pgl_os.h"
+
 // ----------------------- pglite ----------------------------
 #include "postgres.h"
 #include "utils/memutils.h"
@@ -255,7 +261,7 @@ PDEBUG("# 167");
 	MemoryContextSwitchTo(TopMemoryContext);
 } // AsyncPostgresSingleUserMain
 
-#include "pgl_os.h"
+
 
 #include "pgl_stubs.h"
 

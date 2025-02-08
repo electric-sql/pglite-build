@@ -10,32 +10,19 @@
  * as file handle in initdb.c
  */
 
+
+
 /*
-extern FILE* IDB_PIPE_FP;
-extern FILE* SOCKET_FILE;
-extern int SOCKET_DATA;
-extern int IDB_STAGE;
-*/
+ * popen is routed via pg_popen to stderr or a IDB_PIPE_* file
+ * link a pclose replacement when we are in exec.c ( PG_EXEC defined )
+ */
 
-FILE *pg_popen(const char *command, const char *type) {
-    if (IDB_STAGE>1) {
-    	fprintf(stderr,"# popen[%s]\n", command);
-    	return stderr;
-    }
+extern FILE * pgl_popen(const char *command, const char *type);
+#define popen(command, mode) pgl_popen(command, mode)
 
-    if (!IDB_STAGE) {
-        fprintf(stderr,"# popen[%s] (BOOT)\n", command);
-        IDB_PIPE_FP = fopen( IDB_PIPE_BOOT, "w");
-        IDB_STAGE = 1;
-    } else {
-        fprintf(stderr,"# popen[%s] (SINGLE)\n", command);
-        IDB_PIPE_FP = fopen( IDB_PIPE_SINGLE, "w");
-        IDB_STAGE = 2;
-    }
+extern int pgl_pclose(FILE *stream);
+#define pclose(stream) pgl_pclose(stream)
 
-    return IDB_PIPE_FP;
-
-}
 
 
 int
