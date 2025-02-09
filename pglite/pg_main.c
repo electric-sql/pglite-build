@@ -82,7 +82,13 @@ int SOCKET_DATA = 0;
 #include "../backend/tcop/postgres.c"
 
 
-// static StringInfoData row_description_buf;
+// initdb + start on fd (pipe emulation)
+
+
+static bool force_echo = false;
+
+
+#include "pgl_mains.c"
 
 void
 AsyncPostgresSingleUserMain(int argc, char *argv[], const char *username, int async_restart)
@@ -272,7 +278,6 @@ PDEBUG("# 167");
 
 // interactive_one
 
-static bool force_echo = false;
 
 /* TODO : prevent multiple write and write while reading ? */
 volatile int cma_wsize = 0;
@@ -586,16 +591,16 @@ pg_initdb() {
 
 
 #if PGDEBUG
-    PDEBUG("# 1080");
+    PDEBUG("# 589:" __FILE__);
     printf("# pgl_initdb_main result = %d\n", pgl_initdb_main() );
 #else
     pgl_initdb_main();
 #endif // PGDEBUG
-
+    PDEBUG("# 594:" __FILE__);
     /* save stdin and use previous initdb output to feed boot mode */
     int saved_stdin = dup(STDIN_FILENO);
     {
-        PDEBUG("# 1118: restarting in boot mode for initdb");
+        PDEBUG("# 598: restarting in boot mode for initdb");
         freopen(IDB_PIPE_BOOT, "r", stdin);
 
         char *boot_argv[] = {
@@ -615,13 +620,13 @@ pg_initdb() {
         BootstrapModeMain(boot_argc, boot_argv, false);
         fclose(stdin);
 #if PGDEBUG
-        puts("# 770: keep " IDB_PIPE_BOOT );
+        puts("# 618: keep " IDB_PIPE_BOOT );
 #else
         remove(IDB_PIPE_BOOT);
 #endif
         stdin = fdopen(saved_stdin, "r");
         /* fake a shutdown to comlplete WAL/OID states */
-        proc_exit(66);
+        pg_proc_exit(66);
     }
 
     /* use previous initdb output to feed single mode */

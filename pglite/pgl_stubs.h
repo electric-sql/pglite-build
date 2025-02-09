@@ -21,12 +21,12 @@ startup_hacks(const char *progname) {
     SpinLockInit(&dummy_spinlock);
 }
 
-
+/*
 void
 RePostgresSingleUserMain(int single_argc, char *single_argv[], const char *username) {
     puts("RePostgresSingleUserMain: STUB");
 }
-
+*/
 void pg_repl_raf() {
     puts("pg_repl_raf: STUB");
 }

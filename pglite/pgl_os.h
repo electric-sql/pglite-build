@@ -16,7 +16,6 @@ FILE* IDB_PIPE_FP = NULL;
 int IDB_STAGE = 0;
 
 
-
 /*
  * and now popen will return predefined slot from a file list
  * as file handle in initdb.c
@@ -58,6 +57,5 @@ pgl_pclose(FILE *stream) {
     return 0;
 }
 
-#define pclose(stream) pgl_pclose(stream)
 
-// #endif // PG_EXEC
+
