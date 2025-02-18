@@ -38,7 +38,7 @@ jobs:
 
       - name: Build postgres 16.x WASM via portable-emsdk
         run: |
-          bash ./ci-16_6_WASM.sh
+          bash ./ci-17_2_WASM.sh
 
       - name: Upload sdk to Github Releases
         if: github.event_name == 'release'
