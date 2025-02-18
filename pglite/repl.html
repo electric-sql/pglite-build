@@ -71,7 +71,22 @@
     import initModule from "pglite";
     window.initModule = initModule //(Module)
 
-async function pglite_conf(vm, kv) {
+
+
+/*
+config sample expected in options.config :
+
+    {
+        "shared_preload_libraries" : ["pg_stat_statements"],
+        "compute_query_id" : "on",
+        "pg_stat_statements.max" : "10000",
+        "pg_stat_statements.track": "all",
+    }
+
+*/
+
+//async
+function pgl_conf(vm, kv) {
 
     var lines = vm.os.codec.decode(vm.FS.readFile(vm.PGDATA + "/postgresql.conf")).split('\n');
 
@@ -118,11 +133,11 @@ async function pglite_conf(vm, kv) {
         buf.push(...newlines)
 console.log("BUF", buf)
         vm.FS.writeFile( vm.PGDATA + "/postgresql.conf", buf.join("") )
-        vm.FS.syncfs(false, (e) => { if (e) console.error("pglite_conf error:", e)})
+        vm.FS.syncfs(false, (e) => { if (e) console.error("pgl_conf error:", e)})
     }
 }
 
-globalThis.pglite_conf = pglite_conf
+globalThis.pgl_conf = pgl_conf
 
 
 #endif
@@ -434,7 +449,7 @@ SET ROLE test_user;
 
 /*
                 vm.PGDATA = PGDATA
-                await pglite_conf(vm,{"shared_preload_libraries" : ["pg_stat_statements"]}, {})
+                await pgl_conf(vm,{"shared_preload_libraries" : ["pg_stat_statements"]}, {})
 
 compute_query_id = on
 pg_stat_statements.max = 10000
@@ -442,7 +457,8 @@ pg_stat_statements.track = all
 */
 
                     vm.PGDATA = PGDATA
-                    await pglite_conf(vm, {
+//                    await
+                    pgl_conf(vm, {
                         "shared_preload_libraries" : ["pg_stat_statements"],
                         "compute_query_id" : "on",
                         "pg_stat_statements.max" : "10000",
@@ -637,14 +653,20 @@ pg_stat_statements.track = all
                     console.log("RL:", line)
 
                 } else {
+                    console.warn("READLINE->postMessage:", line)
+                    var ud = { type : "stdin", data : line }
+                    var event = { target: 'custom', userData: ud }
 
-                    const ud = { "type" : "stdin", "data" : line }
-                    if (window.worker) {
-                        window.worker.postMessage({ target: 'custom', userData: ud });
+                    if (globalThis.worker) {
+                        worker.postMessage(event);
                     } else {
-                        window.Module.postMessage(ud);
+                        Module.bc.onmessage(event)
                     }
+
+/*                    vm._use_wire(0)
                     vm._interactive_one()
+                    send_to_pglite(ud, Module.FS)
+*/
                 }
 
             }
@@ -688,13 +710,14 @@ pg_stat_statements.track = all
 
         Module.bc = new BroadcastChannel("pglite")
 
+
         const pg_lck = "/tmp/pglite/base/.s.PGSQL.5432.lck.in"
         const pg_in = "/tmp/pglite/base/.s.PGSQL.5432.in"
         const pg_out = "/tmp/pglite/base/.s.PGSQL.5432.out"
 
-        function send_to_pglite(data, FS) {
+        function send_to_pglite(ev, FS) {
             if (0) { // as socket file
-                FS.writeFile(pg_lck, event.data)
+                FS.writeFile(pg_lck, ev.data)
                 FS.rename(pg_lck, pg_in)
                 Module._interactive_one()
                 const fstat = FS.stat(pg_out)
@@ -707,19 +730,45 @@ pg_stat_statements.track = all
                 Module.bc.postMessage(buf)
 
             } else {   /* CMA */
-                Module._use_wire(1)
-                Module._interactive_write(event.data.byteLength)
-                Module.HEAPU8.set(event.data, Module.cma_port)
-                Module._interactive_one()
             }
         }
 
-        Module.bc.onmessage = (event) => {
+        Module.bc.onmessage = (ev) => {
             const FS = Module.FS
-            console.warn("BC(srv):", event);
-            // send_to_pglite(event.data, FS)
-        };
+            //console.warn("bc.onmessage:", event)
+            if (ev.userData) {
+                var data = ev.userData["data"]
+                var resultArray;
+                if (data.byteLength) {
+                    console.log("binary data, using wire")
+                    Module._use_wire(1)
+                    resultArray.set(data)
+                } else {
+                    console.log("string data, using repl/no wire")
+                    Module._use_wire(0)
+                    const encoder = new TextEncoder();
+                    resultArray = encoder.encode(data);
 
+                    // const utf8Array = encoder.encode(data+"\n");
+                    //resultArray = new Uint8Array(utf8Array.byteLength + 1);
+                    //resultArray.set(utf8Array);
+                    //resultArray[utf8Array.byteLength] = 0; // Append a null byte
+                }
+                const count = resultArray.byteLength
+
+                var port = Module.cma_port || 1
+                Module._ping()
+
+                Module._interactive_write(count)
+                console.log("send_to_pglite(cma):", count, "sent to", port)
+                Module.HEAPU8.set(resultArray, port)
+                Module._interactive_one()
+
+            } else {
+                console.warn("BC(srv):", ev);
+            }
+
+        };
 
 
 #if MODULARIZE

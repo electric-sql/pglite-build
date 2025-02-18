@@ -19,10 +19,11 @@
 
 extern FILE * pgl_popen(const char *command, const char *type);
 #define popen(command, mode) pgl_popen(command, mode)
+// #define popen_check(command, mode) pgl_popen(command, mode)
 
 extern int pgl_pclose(FILE *stream);
 #define pclose(stream) pgl_pclose(stream)
-
+#define pclose_check(stream) pgl_pclose(stream)
 
 
 int
@@ -35,9 +36,10 @@ pg_chmod(const char * path, int mode_t) {
 #   include "../postgresql/src/common/logging.c"
 #undef FRONTEND
 
+
 #include "../postgresql/src/interfaces/libpq/pqexpbuffer.c"
 
-#define fsync_pgdata(...)
+#define sync_pgdata(...)
 #define icu_language_tag(loc_str) icu_language_tag_idb(loc_str)
 #define icu_validate_locale(loc_str) icu_validate_locale_idb(loc_str)
 

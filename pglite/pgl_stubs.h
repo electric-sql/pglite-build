@@ -18,7 +18,9 @@ PostgresMain(const char *dbname, const char *username) {
 
 void
 startup_hacks(const char *progname) {
+#ifdef PG16
     SpinLockInit(&dummy_spinlock);
+#endif
 }
 
 /*
@@ -79,3 +81,64 @@ char *
 simple_prompt(const char *prompt, bool echo) {
     return pg_strdup("");
 }
+
+
+#ifndef PG16
+int
+ProcessStartupPacket(Port *port, bool ssl_done, bool gss_done) {
+    puts("# 89:"__FILE__" ProcessStartupPacket: STUB");
+    return STATUS_OK;
+}
+
+const char *
+select_default_timezone(const char *share_path) {
+    fprintf(stderr, "# 95:" __FILE__ " select_default_timezone(%s): STUB\n", share_path);
+	return getenv("TZ");
+}
+
+#include "../src/interfaces/libpq/pqexpbuffer.h"
+#include "../src/fe_utils/option_utils.c"
+
+bool
+appendShellStringNoError(PQExpBuffer buf, const char *str)
+{
+	bool		ok = true;
+
+	const char *p;
+
+	if (*str != '\0' &&
+		strspn(str, "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_./:") == strlen(str))
+	{
+		appendPQExpBufferStr(buf, str);
+		return ok;
+	}
+	appendPQExpBufferChar(buf, '\'');
+	for (p = str; *p; p++)
+	{
+		if (*p == '\n' || *p == '\r')
+		{
+			ok = false;
+			continue;
+		}
+
+		if (*p == '\'')
+			appendPQExpBufferStr(buf, "'\"'\"'");
+		else
+			appendPQExpBufferChar(buf, *p);
+	}
+	appendPQExpBufferChar(buf, '\'');
+	return ok;
+}
+
+void
+appendShellString(PQExpBuffer buf, const char *str)
+{
+	if (!appendShellStringNoError(buf, str))
+	{
+		fprintf(stderr,
+				_("shell command argument contains a newline or carriage return: \"%s\"\n"),
+				str);
+		exit(EXIT_FAILURE);
+	}
+}
+#endif

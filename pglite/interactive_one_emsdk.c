@@ -124,16 +124,19 @@ recv_password_packet(Port *port) {
 int md5Salt_len  = 4;
 char md5Salt[4];
 
+ClientSocket dummy_sock;
+
 static void io_init(bool in_auth, bool out_auth) {
         ClientAuthInProgress = in_auth;
-    	pq_init();					/* initialize libpq to talk to client */
-    	whereToSendOutput = DestRemote; /* now safe to ereport to client */
-        MyProcPort = (Port *) calloc(1, sizeof(Port));
+        MyProcPort = pq_init(&dummy_sock);
         if (!MyProcPort) {
             PDEBUG("# 133: io_init   --------- NO CLIENT (oom) ---------");
             abort();
         }
-        MyProcPort->canAcceptConnections = CAC_OK;
+    	whereToSendOutput = DestRemote; /* now safe to ereport to client */
+#ifdef PG16
+       MyProcPort->canAcceptConnections = CAC_OK;
+#endif
         ClientAuthInProgress = out_auth;
 
         SOCKET_FILE = NULL;
@@ -415,13 +418,15 @@ printf("# 353 : node+repl is_wire/is_socket -> true : %c\n", firstchar);
 
         if (!MyProcPort) {
             ClientAuthInProgress = true;
-            pq_init();
-            MyProcPort = (Port *) calloc(1, sizeof(Port));
+
+            MyProcPort = pq_init(&dummy_sock);
             if (!MyProcPort) {
                 PDEBUG("      --------- NO CLIENT (oom) ---------");
                 abort();
             }
+#ifdef PG16
             MyProcPort->canAcceptConnections = CAC_OK;
+#endif
             ClientAuthInProgress = false;
         }
 
@@ -483,7 +488,7 @@ incoming:
         if (MyReplicationSlot != NULL)
             ReplicationSlotRelease();
 
-        ReplicationSlotCleanup();
+        ReplicationSlotCleanup(false);
 
         MemoryContextSwitchTo(TopMemoryContext);
         FlushErrorState();
@@ -553,7 +558,7 @@ incoming:
             /* process notifications */
             ProcessClientReadInterrupt(true);
         }
-        if (is_wire && pq_buffer_has_data()) {
+        if (is_wire && pq_buffer_remaining_data()) {
             firstchar = SocketBackend(inBuf);
 #if PGDEBUG
             printf("583: PIPELINING [%c]!\n", firstchar);

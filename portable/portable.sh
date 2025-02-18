@@ -2,12 +2,14 @@
 export PG_VERSION=${PG_VERSION:-REL_16_6_WASM}
 export PORTABLE=$(realpath $(dirname $0))
 export ROOT=$(realpath $(pwd))
+export SDKROOT=${SDKROOT:-/tmp/sdk}
 
 echo "
 
 PORTABLE=$PORTABLE
 ROOT=$ROOT
 PG_VERSION=$PG_VERSION
+SDKROOT=$SDKROOT
 
 "
 
@@ -18,9 +20,6 @@ export PATH=$PORTABLE:$PATH
 export WORKDIR=${ROOT}
 export CONTAINER_PATH=${CONTAINER_PATH:-/tmp/fs}
 export HOME=/tmp
-
-#export PROOT=${PORTABLE}/proot-rs
-#export ALPINEPROOT_USE_PROOT_RS=true
 export PROOT=${PORTABLE}/proot
 
 # --------------------------------------------------------
@@ -435,7 +434,7 @@ Fatal: failed to apply patch : $one
         touch postgresql-${PG_VERSION}.patched
     fi
 
-    if [ -d $CONTAINER_PATH/opt/python-wasm-sdk ]
+    if [ -d $CONTAINER_PATH/${SDKROOT} ]
     then
         echo using cached version
     else
@@ -451,7 +450,7 @@ Fatal: failed to apply patch : $one
     fi
 
     # prevent erasing
-    touch $CONTAINER_PATH/opt/python-wasm-sdk/dev
+    touch ${CONTAINER_PATH}${SDKROOT}/dev
 
     if ${CI:-false}
     then

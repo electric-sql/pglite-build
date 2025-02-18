@@ -7,9 +7,9 @@ export PG_VERSION=${PG_VERSION:-REL_16_6_WASM}
 
 export CI=${CI:-false}
 export PORTABLE=${PORTABLE:-$(pwd)/wasm-build}
-export SDKROOT=${SDKROOT:-/opt/python-wasm-sdk}
+export SDKROOT=${SDKROOT:-/tmp/sdk}
 
-export CMA_MB=${CMA_MB:-32}
+export CMA_MB=${CMA_MB:-8}
 export TOTAL_MEMORY=${TOTAL_MEMORY:-196MB}
 export WASI=${WASI:-false}
 
@@ -17,7 +17,7 @@ export WASI=${WASI:-false}
 # expressed in EMSDK MB
 
 export COPTS=${COPTS:-"-O2 -g3"}
-export LOPTS=${LOPTS:-"-Oz -g0 --closure 1"}
+# export LOPTS=${LOPTS:-"-Oz -g0 --closure 1"}
 export WORKSPACE=${GITHUB_WORKSPACE:-$(pwd)}
 export PGROOT=${PGROOT:-/tmp/pglite}
 export WEBROOT=${WEBROOT:-/tmp/web}
@@ -85,11 +85,11 @@ System node/pnpm ( may interfer) :
 # setup compiler+node. emsdk provides node 20, recent enough for bun.
 # TODO: but may need to adjust $PATH with stock emsdk.
 
-if ${WASI:-false}
+if ${WASI}
 then
     echo "Wasi build (experimental)"
     export WASI_SDK=25.0
-    export WASI_SDK_PREFIX=/opt/python-wasm-sdk/wasisdk/wasi-sdk-${WASI_SDK}-x86_64-linux
+    export WASI_SDK_PREFIX=${SDKROOT}/wasisdk/wasi-sdk-${WASI_SDK}-x86_64-linux
     export WASI_SYSROOT=${WASI_SDK_PREFIX}/share/wasi-sysroot
 
     if [ -f ${WASI_SYSROOT}/extra ]
@@ -111,7 +111,7 @@ then
 
     if false
     then
-        . /opt/python-wasm-sdk/wasisdk/wasisdk_env.sh
+        . ${SDKROOT}/wasisdk/wasisdk_env.sh
         env|grep WASI
         export CC=${WASI_SDK_DIR}/bin/clang
         export CPP=${WASI_SDK_DIR}/bin/clang-cpp
@@ -121,12 +121,16 @@ then
     else
         . ${SDKROOT}/wasm32-wasi-shell.sh
     fi
+
+    # wasi does not use -sGLOBAL_BASE
+    CC_PGLITE="-DCMA_MB=${CMA_MB}"
+
 else
     if which emcc
     then
         echo "emcc found in PATH=$PATH"
     else
-        . /opt/python-wasm-sdk/wasm32-bi-emscripten-shell.sh
+        . ${SDKROOT}/wasm32-bi-emscripten-shell.sh
     fi
     export PG_LINK=${PG_LINK:-$(which emcc)}
 
@@ -149,16 +153,10 @@ else
 
 fi
 
-# these are files that shadow original portion of pg core, with minimal changes
-# to original code
-# some may be included multiple time
-CC_PGLITE="-DPATCH_MAIN=${WORKSPACE}/patches/pg_main.c ${CC_PGLITE}"
-CC_PGLITE="-DPATCH_LOOP=${WORKSPACE}/patches/interactive_one.c ${CC_PGLITE}"
-CC_PGLITE="-DPATCH_PLUGIN=${WORKSPACE}/patches/pg_plugin.h ${CC_PGLITE}"
-# for PG_DEBUG_HEADER
-CC_PGLITE="-I${PGROOT}/include ${CC_PGLITE}"
+# also used for non make (linking and pgl_main)
+export CC_PGLITE="-DPYDK=1 -DPG_PREFIX=${PGROOT} -I${PGROOT}/include ${CC_PGLITE}"
 
-export CC_PGLITE
+
 export PGPRELOAD="\
 --preload-file ${PGROOT}/share/postgresql@${PGROOT}/share/postgresql \
 --preload-file ${PGROOT}/lib/postgresql@${PGROOT}/lib/postgresql \

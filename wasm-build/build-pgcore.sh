@@ -59,7 +59,8 @@ echo "
 Building $ARCHIVE (patched) from $PGSRC WASI=$WASI
 
 
-pgbuild:begin
+build-pgcore:begin
+___________________________________________________
 
 CC_PGLITE=$CC_PGLITE
 
@@ -95,9 +96,7 @@ else
 #  --disable-atomics https://github.com/WebAssembly/threads/pull/147  "Allow atomic operations on unshared memories"
 
 
-    export PYDK_CFLAGS="${CC_PGLITE} -DPG_PREFIX=${PGROOT} -DPYDK=1"
-
-    COMMON_CFLAGS="-sERROR_ON_UNDEFINED_SYMBOLS ${CC_PGLITE} -DPYDK=1 -DPG_PREFIX=${PGROOT} -Wno-declaration-after-statement -Wno-macro-redefined -Wno-unused-function -Wno-missing-prototypes -Wno-incompatible-pointer-types"
+    COMMON_CFLAGS="-sERROR_ON_UNDEFINED_SYMBOLS ${CC_PGLITE} -Wno-declaration-after-statement -Wno-macro-redefined -Wno-unused-function -Wno-missing-prototypes -Wno-incompatible-pointer-types"
 
     if ${WASI}
     then
@@ -162,7 +161,7 @@ END
         then
             cat > bin/zic <<END
 #!/bin/bash
-#. /opt/python-wasm-sdk/wasm32-wasi-shell.sh
+#. ${SDKROOT}/wasm32-wasi-shell.sh
 TZ=UTC PGTZ=UTC $(command -v wasi-run) $(pwd)/src/timezone/zic.wasi \$@
 END
         fi
@@ -177,7 +176,7 @@ END
         then
             cat > bin/zic <<END
 #!/bin/bash
-#. /opt/python-wasm-sdk/wasm32-bi-emscripten-shell.sh
+#. ${SDKROOT}/wasm32-bi-emscripten-shell.sh
 TZ=UTC PGTZ=UTC $(command -v node) $(pwd)/src/timezone/zic.cjs \$@
 END
         fi
@@ -300,7 +299,7 @@ END
 
     cat > pg-make.sh <<END
 #!/bin/bash
-. /opt/python-wasm-sdk/wasm32-bi-emscripten-shell.sh
+. ${SDKROOT}/wasm32-bi-emscripten-shell.sh
 export PATH=$PGROOT/bin:\$PATH
 
 # ZIC=$ZIC
@@ -319,7 +318,7 @@ Linking ...
 '
 cat $SDKROOT/VERSION
 rm -vf libp*.a src/backend/postgres*
-EMCC_CFLAGS="${EMCC_NODE}" emmake make AR=\${EMSDK}/upstream/bin/llvm-ar $BUILD=1 -j \${NCPU:-$NCPU} \$@
+EMCC_CFLAGS="${CC_PGLITE} ${EMCC_NODE}" emmake make AR=\${EMSDK}/upstream/bin/llvm-ar $BUILD=1 -j \${NCPU:-$NCPU} \$@
 
 echo '____________________________________________________________'
 du -hs src/port/libpgport_srv.a src/common/libpgcommon_srv.a libp*.a src/backend/postgres*
@@ -327,33 +326,8 @@ echo '____________________________________________________________'
 
 END
 
-
-    cat > pg-link.sh <<END
-#!/bin/bash
-. /opt/python-wasm-sdk/wasm32-bi-emscripten-shell.sh
-AR=${EMSDK}/upstream/bin/llvm-ar
-pushd $(pwd)
-    mkdir -p libpgcommon_srv libpgport_srv pglite
-
-    pushd libpgcommon_srv
-        \${AR} -x ../src/common/libpgcommon_srv.a
-    popd
-
-    pushd libpgport_srv
-        \${AR} -x ../src/port/libpgport_srv.a
-    popd
-
-    pushd pglite
-        \${AR} -x ../libpostgres.a
-    popd
-
-    \${AR} crs libpglite.a libpgcommon_srv/*.o libpgport_srv/*.o pglite/*.o
-popd
-END
-
-
-
-    chmod +x pg-make.sh pg-link.sh
+    chmod +x pg-make.sh
+#    pg-link.sh
 
     if env -i ./pg-make.sh install
     then
@@ -420,7 +394,7 @@ END
 
 fi
 
-echo "pgbuild:end
+echo "build-pgcore: end
 
 
 

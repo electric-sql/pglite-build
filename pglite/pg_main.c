@@ -18,6 +18,13 @@
 
 // globals
 
+//17
+// void *		dummy_spinlock;
+#define MemoryContextResetAndDeleteChildren(...)
+#define SpinLockInit(...)
+
+
+
 int g_argc;
 char **g_argv;
 extern char ** environ;
@@ -90,185 +97,6 @@ static bool force_echo = false;
 
 #include "pgl_mains.c"
 
-void
-AsyncPostgresSingleUserMain(int argc, char *argv[], const char *username, int async_restart)
-{
-	const char *dbname = NULL;
-PDEBUG("# 80");
-
-	/* Initialize startup process environment. */
-	InitStandaloneProcess(argv[0]);
-
-	/* Set default values for command-line options.	 */
-	InitializeGUCOptions();
-
-	/* Parse command-line options. */
-	process_postgres_switches(argc, argv, PGC_POSTMASTER, &dbname);
-
-	/* Must have gotten a database name, or have a default (the username) */
-	if (dbname == NULL)
-	{
-		dbname = username;
-		if (dbname == NULL)
-			ereport(FATAL,
-					(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
-					 errmsg("%s: no database nor user name specified",
-							progname)));
-	}
-
-if (async_restart) goto async_db_change;
-
-	/* Acquire configuration parameters */
-	if (!SelectConfigFiles(userDoption, progname)) {
-        proc_exit(1);
-    }
-
-	checkDataDir();
-	ChangeToDataDir();
-
-	/*
-	 * Create lockfile for data directory.
-	 */
-	CreateDataDirLockFile(false);
-
-	/* read control file (error checking and contains config ) */
-	LocalProcessControlFile(false);
-
-	/*
-	 * process any libraries that should be preloaded at postmaster start
-	 */
-	process_shared_preload_libraries();
-
-	/* Initialize MaxBackends */
-	InitializeMaxBackends();
-PDEBUG("# 127"); /* on_shmem_exit stubs call start here */
-	/*
-	 * Give preloaded libraries a chance to request additional shared memory.
-	 */
-	process_shmem_requests();
-
-	/*
-	 * Now that loadable modules have had their chance to request additional
-	 * shared memory, determine the value of any runtime-computed GUCs that
-	 * depend on the amount of shared memory required.
-	 */
-	InitializeShmemGUCs();
-
-	/*
-	 * Now that modules have been loaded, we can process any custom resource
-	 * managers specified in the wal_consistency_checking GUC.
-	 */
-	InitializeWalConsistencyChecking();
-
-	CreateSharedMemoryAndSemaphores();
-
-	/*
-	 * Remember stand-alone backend startup time,roughly at the same point
-	 * during startup that postmaster does so.
-	 */
-	PgStartTime = GetCurrentTimestamp();
-
-	/*
-	 * Create a per-backend PGPROC struct in shared memory. We must do this
-	 * before we can use LWLocks.
-	 */
-	InitProcess();
-
-// main
-	SetProcessingMode(InitProcessing);
-
-	/* Early initialization */
-	BaseInit();
-async_db_change:;
-
-PDEBUG("# 167");
-	/*
-	 * General initialization.
-	 *
-	 * NOTE: if you are tempted to add code in this vicinity, consider putting
-	 * it inside InitPostgres() instead.  In particular, anything that
-	 * involves database access should be there, not here.
-	 */
-	InitPostgres(dbname, InvalidOid,	/* database to connect to */
-				 username, InvalidOid,	/* role to connect as */
-				 !am_walsender, /* honor session_preload_libraries? */
-				 false,			/* don't ignore datallowconn */
-				 NULL);			/* no out_dbname */
-
-	/*
-	 * If the PostmasterContext is still around, recycle the space; we don't
-	 * need it anymore after InitPostgres completes.  Note this does not trash
-	 * *MyProcPort, because ConnCreate() allocated that space with malloc()
-	 * ... else we'd need to copy the Port data first.  Also, subsidiary data
-	 * such as the username isn't lost either; see ProcessStartupPacket().
-	 */
-	if (PostmasterContext)
-	{
-		MemoryContextDelete(PostmasterContext);
-		PostmasterContext = NULL;
-	}
-
-	SetProcessingMode(NormalProcessing);
-
-	/*
-	 * Now all GUC states are fully set up.  Report them to client if
-	 * appropriate.
-	 */
-	BeginReportingGUCOptions();
-
-	/*
-	 * Also set up handler to log session end; we have to wait till now to be
-	 * sure Log_disconnections has its final value.
-	 */
-	if (IsUnderPostmaster && Log_disconnections)
-		on_proc_exit(log_disconnections, 0);
-
-	pgstat_report_connect(MyDatabaseId);
-
-	/* Perform initialization specific to a WAL sender process. */
-	if (am_walsender)
-		InitWalSender();
-
-	/*
-	 * Send this backend's cancellation info to the frontend.
-	 */
-	if (whereToSendOutput == DestRemote)
-	{
-		StringInfoData buf;
-
-		pq_beginmessage(&buf, 'K');
-		pq_sendint32(&buf, (int32) MyProcPid);
-		pq_sendint32(&buf, (int32) MyCancelKey);
-		pq_endmessage(&buf);
-		/* Need not flush since ReadyForQuery will do it. */
-	}
-
-	/* Welcome banner for standalone case */
-	if (whereToSendOutput == DestDebug)
-		printf("\nPostgreSQL stand-alone backend %s\n", PG_VERSION);
-
-	/*
-	 * Create the memory context we will use in the main loop.
-	 *
-	 * MessageContext is reset once per iteration of the main loop, ie, upon
-	 * completion of processing of each command message from the client.
-	 */
-	MessageContext = AllocSetContextCreate(TopMemoryContext, "MessageContext", ALLOCSET_DEFAULT_SIZES);
-
-	/*
-	 * Create memory context and buffer used for RowDescription messages. As
-	 * SendRowDescriptionMessage(), via exec_describe_statement_message(), is
-	 * frequently executed for ever single statement, we don't want to
-	 * allocate a separate buffer every time.
-	 */
-	row_description_context = AllocSetContextCreate(TopMemoryContext, "RowDescriptionContext", ALLOCSET_DEFAULT_SIZES);
-	MemoryContextSwitchTo(row_description_context);
-	initStringInfo(&row_description_buf);
-	MemoryContextSwitchTo(TopMemoryContext);
-} // AsyncPostgresSingleUserMain
-
-
-
 #include "pgl_stubs.h"
 
 #include "pgl_tools.h"
@@ -293,28 +121,11 @@ interactive_read() {
 }
 
 
-#if defined(__wasi__)
+#if 1 // defined(__wasi__)
 #   include "./interactive_one_wasi.c"
 #else
 #   include "./interactive_one_emsdk.c"
 #endif
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -545,7 +356,7 @@ __attribute__((export_name("pg_initdb")))
 #endif
 int
 pg_initdb() {
-    PDEBUG("# 695: pg_initdb()");
+    PDEBUG("# 352: pg_initdb()");
     optind = 1;
     int async_restart = 1;
     pg_idb_status |= IDB_FAILED;
@@ -559,7 +370,7 @@ pg_initdb() {
             /* assume auth success for now */
             pg_idb_status |= IDB_HASUSER;
 #if PGDEBUG
-            printf("# 202: pg_initdb: db exists at : %s TODO: test for db name : %s \n", getenv("PGDATA"), getenv("PGDATABASE"));
+            printf("# 366: pg_initdb: db exists at : %s TODO: test for db name : %s \n", getenv("PGDATA"), getenv("PGDATABASE"));
 //            print_bits(sizeof(pg_idb_status), &pg_idb_status);
 #endif // PGDEBUG
             main_post();
@@ -585,22 +396,20 @@ pg_initdb() {
         }
     	chdir("/");
 #if PGDEBUG
-        printf("pg_initdb: no db found at : %s\n", getenv("PGDATA") );
+        printf("# 399: pg_initdb no db found at : %s\n", getenv("PGDATA") );
 #endif // PGDEBUG
     }
 
+    int initdb_rc = pgl_initdb_main();
 
 #if PGDEBUG
-    PDEBUG("# 589:" __FILE__);
-    printf("# pgl_initdb_main result = %d\n", pgl_initdb_main() );
-#else
-    pgl_initdb_main();
+    printf("# 399: " __FILE__ "pgl_initdb_main = %d\n", initdb_rc );
 #endif // PGDEBUG
-    PDEBUG("# 594:" __FILE__);
+    PDEBUG("# 401:" __FILE__);
     /* save stdin and use previous initdb output to feed boot mode */
     int saved_stdin = dup(STDIN_FILENO);
     {
-        PDEBUG("# 598: restarting in boot mode for initdb");
+        PDEBUG("# 405: restarting in boot mode for initdb");
         freopen(IDB_PIPE_BOOT, "r", stdin);
 
         char *boot_argv[] = {
@@ -619,29 +428,25 @@ pg_initdb() {
         optind = 1;
         BootstrapModeMain(boot_argc, boot_argv, false);
         fclose(stdin);
-#if PGDEBUG
-        puts("# 618: keep " IDB_PIPE_BOOT );
-#else
         remove(IDB_PIPE_BOOT);
-#endif
         stdin = fdopen(saved_stdin, "r");
-        /* fake a shutdown to comlplete WAL/OID states */
+
+        PDEBUG("# 427: initdb faking shutdown to complete WAL/OID states");
         pg_proc_exit(66);
     }
 
     /* use previous initdb output to feed single mode */
 
-
     /* or resume a previous db */
     //IsPostmasterEnvironment = true;
-    if (ShmemVariableCache->nextOid < ((Oid) FirstNormalObjectId)) {
+    if (TransamVariables->nextOid < ((Oid) FirstNormalObjectId)) {
 #if PGDEBUG
-        puts("# 891: warning oid base too low, will need to set OID range after initdb(bootstrap/single)");
+        puts("# 633: warning oid base too low, will need to set OID range after initdb(bootstrap/single)");
 #endif
     }
 
     {
-        PDEBUG("# 791: restarting in single mode for initdb");
+        PDEBUG("# 442: restarting in single mode for initdb");
 
         char *single_argv[] = {
             WASM_PREFIX "/bin/postgres",
@@ -661,11 +466,11 @@ pg_initdb() {
 initdb_done:;
     pg_idb_status |= IDB_CALLED;
     IsPostmasterEnvironment = true;
-    if (ShmemVariableCache->nextOid < ((Oid) FirstNormalObjectId)) {
+    if (TransamVariables->nextOid < ((Oid) FirstNormalObjectId)) {
         /* IsPostmasterEnvironment is now true
          these will be executed when required in varsup.c/GetNewObjectId
-    	 ShmemVariableCache->nextOid = FirstNormalObjectId;
-	     ShmemVariableCache->oidCount = 0;
+    	 TransamVariables->nextOid = FirstNormalObjectId;
+	     TransamVariables->oidCount = 0;
         */
 #if PGDEBUG
         puts("# 922: initdb done, oid base too low but OID range will be set because IsPostmasterEnvironment");
@@ -678,7 +483,7 @@ initdb_done:;
         /* we did not fail, clear the default failed state */
         pg_idb_status &= IDB_OK;
     } else {
-        PDEBUG("# exiting on initdb-single error");
+        PDEBUG("# 479: exiting on initdb-single error");
         // TODO raise js exception
     }
     return pg_idb_status;
@@ -701,7 +506,7 @@ main_repl() {
 #endif
         #if defined(PG_INITDB_MAIN)
             #warning "web build"
-puts("# 851");
+puts("# 502");
             hadloop_error = pg_initdb() & IDB_FAILED;
         #else
             #warning "node build"
@@ -769,7 +574,7 @@ puts("# 851");
             return 0;
         }
 
-        PDEBUG("# 1415: single: " __FILE__ );
+        PDEBUG("# 570: single: " __FILE__ );
         AsyncPostgresSingleUserMain(g_argc, g_argv, strdup(getenv("PGUSER")), 0);
     }
     return 0;
@@ -820,12 +625,12 @@ main(int argc, char **argv)
         return 0;
     }
 
-    PDEBUG("# 970: repl");
+    PDEBUG("# 621: repl");
     // so it is repl
     main_repl();
 
     if (is_node) {
-        PDEBUG("# 975: node repl");
+        PDEBUG("# 626: node repl");
         pg_repl_raf();
     }
 

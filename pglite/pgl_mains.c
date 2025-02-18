@@ -120,7 +120,7 @@ void
 RePostgresSingleUserMain(int single_argc, char *single_argv[], const char *username)
 {
 #if PGDEBUG
-printf("# 7: RePostgresSingleUserMain progname=%s for %s feed=%s\n", progname, single_argv[0], IDB_PIPE_SINGLE);
+printf("# 123: RePostgresSingleUserMain progname=%s for %s feed=%s\n", progname, single_argv[0], IDB_PIPE_SINGLE);
 #endif
     single_mode_feed = fopen(IDB_PIPE_SINGLE, "r");
 
@@ -131,7 +131,7 @@ printf("# 7: RePostgresSingleUserMain progname=%s for %s feed=%s\n", progname, s
     /* Parse command-line options. */
     process_postgres_switches(single_argc, single_argv, PGC_POSTMASTER, &dbname);
 #if PGDEBUG
-printf("# 18: dbname=%s\n", dbname);
+printf("# 134: dbname=%s\n", dbname);
 #endif
     LocalProcessControlFile(false);
 
@@ -150,18 +150,17 @@ IgnoreSystemIndexes = false;
     PgStartTime = GetCurrentTimestamp();
 
     SetProcessingMode(InitProcessing);
-PDEBUG("# 37: Re-InitPostgres");
+PDEBUG("# 153: Re-InitPostgres");
 if (am_walsender)
-    PDEBUG("# 39: am_walsender == true");
+    PDEBUG("# 155: am_walsender == true");
 //      BaseInit();
 
     InitPostgres(dbname, InvalidOid,	/* database to connect to */
                  username, InvalidOid,	/* role to connect as */
-                 !am_walsender, /* honor session_preload_libraries? */
-                 false,			/* don't ignore datallowconn */
+                 (!am_walsender) ? INIT_PG_LOAD_SESSION_LIBS : 0,
                  NULL);			/* no out_dbname */
 
-PDEBUG("# 48:" __FILE__);
+PDEBUG("# 164:" __FILE__);
 
     SetProcessingMode(NormalProcessing);
 
@@ -206,8 +205,8 @@ PDEBUG("# 48:" __FILE__);
     initStringInfo(&row_description_buf);
     MemoryContextSwitchTo(TopMemoryContext);
 
-#if defined(__wasi__) //PGDEBUG
-    puts("# 112: sjlj exception handler off");
+#if 1 // defined(__wasi__)
+    puts("# 210: sjlj exception handler off in initdb");
 #else
     if (sigsetjmp(local_sigjmp_buf, 1) != 0)
     {
@@ -325,14 +324,14 @@ PDEBUG("# 48:" __FILE__);
     /* We can now handle ereport(ERROR) */
     PG_exception_stack = &local_sigjmp_buf;
 
-#endif
+#endif // sjlj
 
     if (!ignore_till_sync)
         send_ready_for_query = true;	/* initially, or after error */
 
     if (!inloop) {
         inloop = true;
-        PDEBUG("# 545: REPL(initdb-single):Begin " __FILE__ );
+        PDEBUG("# 335: REPL(initdb-single):Begin " __FILE__ );
 
         while (repl) { interactive_file(); }
     } else {
@@ -341,11 +340,11 @@ PDEBUG("# 48:" __FILE__);
     }
 
     fclose(single_mode_feed);
-
+/*
     if (strlen(getenv("REPL")) && getenv("REPL")[0]=='Y') {
-        PDEBUG("# 556: REPL(initdb-single):End " __FILE__ );
+        PDEBUG("# 346: REPL(initdb-single):End " __FILE__ );
 
-        /* now use stdin as source */
+        // now use stdin as source
         repl = true;
         single_mode_feed = NULL;
 
@@ -355,12 +354,12 @@ PDEBUG("# 48:" __FILE__);
 #if PGDEBUG
             fprintf(stdout,"# 551: now in webloop(RAF)\npg> %c\n", 4);
 #endif
-//            emscripten_set_main_loop( (em_callback_func)interactive_one, 0, 0);
+            emscripten_set_main_loop( (em_callback_func)interactive_one, 0, 0);
         } else {
 
-            PDEBUG("# 556: REPL(single after initdb):Begin(NORETURN)");
+            PDEBUG("# 361: REPL(single after initdb):Begin(NORETURN)");
             while (repl) { interactive_file(); }
-            PDEBUG("# 558: REPL:End Raising a 'RuntimeError Exception' to halt program NOW");
+            PDEBUG("# 363: REPL:End Raising a 'RuntimeError Exception' to halt program NOW");
             {
                 void (*npe)() = NULL;
                 npe();
@@ -369,8 +368,188 @@ PDEBUG("# 48:" __FILE__);
 
         // unreachable.
     }
+*/
 
-    PDEBUG("# 257: no line-repl requested, exiting and keeping runtime alive");
+    PDEBUG("# 374: no line-repl requested, exiting and keeping runtime alive");
 }
+
+
+
+
+void
+AsyncPostgresSingleUserMain(int argc, char *argv[], const char *username, int async_restart)
+{
+	const char *dbname = NULL;
+PDEBUG("# 80");
+
+	/* Initialize startup process environment. */
+	InitStandaloneProcess(argv[0]);
+
+	/* Set default values for command-line options.	 */
+	InitializeGUCOptions();
+
+	/* Parse command-line options. */
+	process_postgres_switches(argc, argv, PGC_POSTMASTER, &dbname);
+
+	/* Must have gotten a database name, or have a default (the username) */
+	if (dbname == NULL)
+	{
+		dbname = username;
+		if (dbname == NULL)
+			ereport(FATAL,
+					(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+					 errmsg("%s: no database nor user name specified",
+							progname)));
+	}
+
+if (async_restart) goto async_db_change;
+
+	/* Acquire configuration parameters */
+	if (!SelectConfigFiles(userDoption, progname)) {
+        proc_exit(1);
+    }
+
+	checkDataDir();
+	ChangeToDataDir();
+
+	/*
+	 * Create lockfile for data directory.
+	 */
+	CreateDataDirLockFile(false);
+
+	/* read control file (error checking and contains config ) */
+	LocalProcessControlFile(false);
+
+	/*
+	 * process any libraries that should be preloaded at postmaster start
+	 */
+	process_shared_preload_libraries();
+
+	/* Initialize MaxBackends */
+	InitializeMaxBackends();
+PDEBUG("# 127"); /* on_shmem_exit stubs call start here */
+	/*
+	 * Give preloaded libraries a chance to request additional shared memory.
+	 */
+	process_shmem_requests();
+
+	/*
+	 * Now that loadable modules have had their chance to request additional
+	 * shared memory, determine the value of any runtime-computed GUCs that
+	 * depend on the amount of shared memory required.
+	 */
+	InitializeShmemGUCs();
+
+	/*
+	 * Now that modules have been loaded, we can process any custom resource
+	 * managers specified in the wal_consistency_checking GUC.
+	 */
+	InitializeWalConsistencyChecking();
+
+	CreateSharedMemoryAndSemaphores();
+
+	/*
+	 * Remember stand-alone backend startup time,roughly at the same point
+	 * during startup that postmaster does so.
+	 */
+	PgStartTime = GetCurrentTimestamp();
+
+	/*
+	 * Create a per-backend PGPROC struct in shared memory. We must do this
+	 * before we can use LWLocks.
+	 */
+	InitProcess();
+
+// main
+	SetProcessingMode(InitProcessing);
+
+	/* Early initialization */
+	BaseInit();
+async_db_change:;
+
+PDEBUG("# 167");
+	/*
+	 * General initialization.
+	 *
+	 * NOTE: if you are tempted to add code in this vicinity, consider putting
+	 * it inside InitPostgres() instead.  In particular, anything that
+	 * involves database access should be there, not here.
+	 */
+	InitPostgres(dbname, InvalidOid,	/* database to connect to */
+				 username, InvalidOid,	/* role to connect as */
+                 (!am_walsender) ? INIT_PG_LOAD_SESSION_LIBS : 0,
+				 NULL);			/* no out_dbname */
+
+	/*
+	 * If the PostmasterContext is still around, recycle the space; we don't
+	 * need it anymore after InitPostgres completes.  Note this does not trash
+	 * *MyProcPort, because ConnCreate() allocated that space with malloc()
+	 * ... else we'd need to copy the Port data first.  Also, subsidiary data
+	 * such as the username isn't lost either; see ProcessStartupPacket().
+	 */
+	if (PostmasterContext)
+	{
+		MemoryContextDelete(PostmasterContext);
+		PostmasterContext = NULL;
+	}
+
+	SetProcessingMode(NormalProcessing);
+
+	/*
+	 * Now all GUC states are fully set up.  Report them to client if
+	 * appropriate.
+	 */
+	BeginReportingGUCOptions();
+
+	/*
+	 * Also set up handler to log session end; we have to wait till now to be
+	 * sure Log_disconnections has its final value.
+	 */
+	if (IsUnderPostmaster && Log_disconnections)
+		on_proc_exit(log_disconnections, 0);
+
+	pgstat_report_connect(MyDatabaseId);
+
+	/* Perform initialization specific to a WAL sender process. */
+	if (am_walsender)
+		InitWalSender();
+
+	/*
+	 * Send this backend's cancellation info to the frontend.
+	 */
+	if (whereToSendOutput == DestRemote)
+	{
+		StringInfoData buf;
+
+		pq_beginmessage(&buf, 'K');
+		pq_sendint32(&buf, (int32) MyProcPid);
+		pq_sendint32(&buf, (int32) MyCancelKey);
+		pq_endmessage(&buf);
+		/* Need not flush since ReadyForQuery will do it. */
+	}
+
+	/* Welcome banner for standalone case */
+	if (whereToSendOutput == DestDebug)
+		printf("\nPostgreSQL stand-alone backend %s\n", PG_VERSION);
+
+	/*
+	 * Create the memory context we will use in the main loop.
+	 *
+	 * MessageContext is reset once per iteration of the main loop, ie, upon
+	 * completion of processing of each command message from the client.
+	 */
+	MessageContext = AllocSetContextCreate(TopMemoryContext, "MessageContext", ALLOCSET_DEFAULT_SIZES);
+
+	/*
+	 * Create memory context and buffer used for RowDescription messages. As
+	 * SendRowDescriptionMessage(), via exec_describe_statement_message(), is
+	 * frequently executed for ever single statement, we don't want to
+	 * allocate a separate buffer every time.
+	 */
+	row_description_context = AllocSetContextCreate(TopMemoryContext, "RowDescriptionContext", ALLOCSET_DEFAULT_SIZES);
+	MemoryContextSwitchTo(row_description_context);
+	initStringInfo(&row_description_buf);
+	MemoryContextSwitchTo(TopMemoryContext);
+} // AsyncPostgresSingleUserMain
 
 
