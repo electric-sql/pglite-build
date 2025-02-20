@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-export PG_VERSION=${PG_VERSION:-REL_16_6_WASM}
+export PG_VERSION=${PG_VERSION:-REL_17_2_WASM}
 export PORTABLE=$(realpath $(dirname $0))
 export ROOT=$(realpath $(pwd))
 export SDKROOT=${SDKROOT:-/tmp/sdk}
@@ -344,7 +344,10 @@ __start() {
 		swap_ra_hit 0
 	EOM
 
-	if [ "$(uname -o)" = "Android" ]; then unset LD_PRELOAD; fi
+	if [ "$(uname -o)" = "Android" ]
+    then
+        unset LD_PRELOAD
+    fi
 
 	COMMANDS=$PROOT
 #	COMMANDS+=" --link2symlink"
@@ -356,7 +359,8 @@ __start() {
 	COMMANDS+=" -b /proc/self/fd/1:/dev/stdout"
 	COMMANDS+=" -b /proc/self/fd/2:/dev/stderr"
     COMMANDS+=" -b ${WORKDIR}:/workspace"
-	for f in stat version loadavg vmstat uptime; do
+	for f in stat version loadavg vmstat uptime
+    do
 		[ -f "$CONTAINER_PATH/proc/.$f" ] && COMMANDS+=" -b $CONTAINER_PATH/proc/.$f:/proc/$f"
 	done
 	COMMANDS+=" -r $CONTAINER_PATH -0 -w /root"
@@ -364,13 +368,15 @@ __start() {
 
 	# Detect whenever Pulseaudio is installed with POSIX support
 	if pulseaudio=$(command -v pulseaudio) && [ ! -S $PREFIX/var/run/pulse/native ]; then
-		if [ -z "$ALPINEPROOT_NO_PULSE" ]; then
+		if [ -z "$ALPINEPROOT_NO_PULSE" ]
+        then
 			! $pulseaudio --check && $pulseaudio --start --exit-idle-time=-1
 
 			[ $? = 0 ] && [ -S "$(echo $TMPDIR/pulse-*/native)" ] && COMMANDS+=" -b $(echo $TMPDIR/pulse-*/native):/var/run/pulse/native"
 		fi
 	else
-		if [ -z "$ALPINEPROOT_NO_PULSE" ]; then
+		if [ -z "$ALPINEPROOT_NO_PULSE" ]
+        then
 			[ -S $PREFIX/var/run/pulse/native ] && COMMANDS+=" -b $PREFIX/var/run/pulse/native:/var/run/pulse/native"
 		fi
 	fi
@@ -403,10 +409,11 @@ $(find patches-${PG_VERSION}/postgresql-*)
 
 
 "
-        touch ./src/template/emscripten
-        touch ./src/include/port/emscripten.h
-        touch ./src/include/port/wasm_common.h
-        touch ./src/makefiles/Makefile.emscripten
+        # these don't exist in a released postgres.
+        touch ./src/template/emscripten \
+         ./src/include/port/emscripten.h \
+         ./src/include/port/wasm_common.h \
+         ./src/makefiles/Makefile.emscripten
 
         for patchdir in \
             postgresql-debug \

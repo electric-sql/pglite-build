@@ -274,7 +274,7 @@ globalThis.pgl_conf = pgl_conf
             var data = null
             switch (test_step) {
                 case 0:
-                    data = "SHOW client_encoding;CREATE EXTENSION IF NOT EXISTS plpgsql;"
+                    data = "SHOW client_encoding;CREATE EXTENSION IF NOT EXISTS plpgsql;SHOW shared_preload_libraries;"
                     break
 
                 case 1:
@@ -392,7 +392,8 @@ globalThis.pgl_conf = pgl_conf
         }
 
         async function delayed_init() {
-            // await Module.load_package("vector", "vector.tar.gz")
+            await Module.load_package("vector", "vector.tar.gz")
+
             // await Module.load_package("pg_stat_statements", "pg_stat_statements.tar.gz")
             // await Module.load_package("postgis", "postgis-3.tar.gz")
             // await Module.load_package("arrays", "arrays.tar.gz")
@@ -457,7 +458,7 @@ pg_stat_statements.track = all
 */
 
                     vm.PGDATA = PGDATA
-//                    await
+
                     pgl_conf(vm, {
                         "shared_preload_libraries" : ["pg_stat_statements"],
                         "compute_query_id" : "on",
@@ -466,7 +467,7 @@ pg_stat_statements.track = all
                     })
             }
 
-            // setTimeout(test_drive, 1500)
+            setTimeout(test_drive, 1500)
         }
 
         // []

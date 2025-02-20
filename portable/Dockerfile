@@ -14,4 +14,4 @@ RUN apk add --no-cache --virtual .build-deps \
 
 WORKDIR /workspace
 
-RUN ./wasm-build.sh
+RUN ./wasm-build.sh contrib extra

@@ -404,7 +404,8 @@ then
     do
         if $CI
         then
-            if [ -d $PREFIX/include/X11 ]
+            #if [ -d $PREFIX/include/X11 ]
+            if true
             then
                 echo -n
             else
