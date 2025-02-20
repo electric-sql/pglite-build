@@ -398,7 +398,7 @@ then
 
     Patching branch ${PG_VERSION} with :
 
-$(find patches-${PG_VERSION}/postgres-*)
+$(find patches-${PG_VERSION}/postgresql-*)
 
 
 
