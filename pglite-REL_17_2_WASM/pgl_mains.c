@@ -5,10 +5,10 @@ volatile bool inloop = false;
 volatile sigjmp_buf local_sigjmp_buf;
 bool repl = false;
 
-
+__attribute__((export_name("pg_shutdown")))
 void
-pgl_shutdown() {
-    PDEBUG("# 637: pg_shutdown");
+pg_shutdown() {
+    PDEBUG("# 11:" __FILE__": pg_shutdown");
     proc_exit(66);
 }
 

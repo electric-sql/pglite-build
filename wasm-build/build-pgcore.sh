@@ -346,6 +346,13 @@ END
                 ./wasm-build/linkwasi.sh || exit 251
             popd
             cp src/backend/postgres.wasi $PGROOT/bin/ || exit 253
+        else
+            mv src/bin/pg_config/pg_config.wasm ${PGROOT}/bin/
+            cat > ${PGROOT}/bin/pg_config <<END
+#!/bin/bash
+$(which node) ${PGROOT}/bin/pg_config.cjs \$@
+END
+            chmod +x ${PGROOT}/bin/pg_config
         fi
 
         pushd ${PGROOT}

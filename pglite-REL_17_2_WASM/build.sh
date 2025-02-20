@@ -42,7 +42,7 @@ else
     then
         LOPTS="-O2 -g3 --no-wasm-opt -sASSERTIONS=1"
         # FULL
-        LINKER="-sMAIN_MODULE=1 -sEXPORTED_FUNCTIONS=_main,_use_wire,_ping"
+        LINKER="-sMAIN_MODULE=1 -sEXPORTED_FUNCTIONS=_main,_use_wire,_ping,_pg_shutdown,_interactive_write,_interactive_read,_interactive_one"
 
     else
         LOPTS="-Oz -g0 --closure 1 -sASSERTIONS=0"
