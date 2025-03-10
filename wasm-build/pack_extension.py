@@ -34,8 +34,8 @@ def is_extension(path:Path, fullpath:Path):
         if path.suffix == ".so":
             EXTNAME = path.stem
             if os.environ.get('OBJDUMP',''):
-                os.system(f"wasm-objdump -x {fullpath} > {PGROOT}/dump.{EXTNAME}")
-                os.system(f"OBJDUMP={PGROOT}/dump.{EXTNAME} python3 wasm-build/getsyms.py imports > {PGPATCH}/imports/{EXTNAME}")
+                os.system(f"wasm-objdump -x {fullpath} 2>/dev/null > {PGROOT}/dump.{EXTNAME}")
+                os.system(f"OBJDUMP={PGROOT}/dump.{EXTNAME} python3 wasm-build/getsyms.py imports 2>/dev/null > {PGPATCH}/imports/{EXTNAME}")
                 with open(f"{PGPATCH}/imports/{EXTNAME}","r") as f:
                     SYMBOLS=f.readlines()
 

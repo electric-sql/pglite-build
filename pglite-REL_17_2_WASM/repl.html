@@ -85,15 +85,14 @@ config sample expected in options.config :
 
 */
 
-//async
-function pgl_conf(vm, kv) {
+async function pgl_conf(vm, kv) {
 
     var lines = vm.os.codec.decode(vm.FS.readFile(vm.PGDATA + "/postgresql.conf")).split('\n');
 
     var buf = []
     var newlines = [];
 
-    return;
+    //return;
 
     for (var k in kv)
     {
@@ -117,7 +116,7 @@ function pgl_conf(vm, kv) {
         }
 
 
-        const newline = `${k} = ${values.join(',')}\n`
+        const newline = `\n${k} = ${values.join(',')}\n`
 
         if (!old.length) {
             console.log("NEW :", newline)
@@ -169,7 +168,7 @@ globalThis.pgl_conf = pgl_conf
     <div id="repl"></div>
 
     <hr/>
-    <textarea class="emscripten" id="output" rows="25" ></textarea>
+    <textarea class="emscripten" id="output" rows="20" ></textarea>
     <hr>
 
 <script type='text/javascript' defer>
@@ -274,25 +273,41 @@ globalThis.pgl_conf = pgl_conf
             var data = null
             switch (test_step) {
                 case 0:
-                    data = "SHOW client_encoding;CREATE EXTENSION IF NOT EXISTS plpgsql;SHOW shared_preload_libraries;"
+                    data = "SHOW client_encoding;SHOW shared_preload_libraries;"
                     break
 
                 case 1:
-                    data = "SELECT now(), current_database(), session_user, current_user;CREATE EXTENSION IF NOT EXISTS vector;"
+                    data = "SELECT now(), current_database(), session_user, current_user;"
                     break
 
                 case 2:
-                      data = `CREATE TABLE IF NOT EXISTS test (
+                    data = "CREATE EXTENSION IF NOT EXISTS plpgsql;CREATE EXTENSION IF NOT EXISTS vector;"
+                    break
+
+                case 3:
+                      data = `
+CREATE TABLE IF NOT EXISTS test (
       id SERIAL PRIMARY KEY,
       number INT
     );
     INSERT INTO test (number) VALUES (42);
-`;
 
+CREATE TABLE IF NOT EXISTS test2 (
+      id SERIAL PRIMARY KEY,
+      number INT
+    );
+    INSERT INTO test2 (number) VALUES (42);
+`;
                     break
 
+                case 4:
+                    data = "CREATE USER test_user WITH PASSWORD 'md5abdbecd56d5fbd2cdaee3d0fa9e4f434';ALTER TABLE test2 OWNER TO test_user;"
+                    break
+
+
+
 /*
-                case 2:
+                case 3:
                     data = "SELECT now(), current_database(), session_user, current_user;CREATE EXTENSION IF NOT EXISTS postgis;"
                     break
 
@@ -301,10 +316,9 @@ globalThis.pgl_conf = pgl_conf
                     data = "SELECT now(), PostGIS_Version();"
                     break
 
-                case 4:
-                    data = "CREATE EXTENSION IF NOT EXISTS arrays;"
+                case 3:
+                    data = "SELECT dictname FROM pg_catalog.pg_ts_dict;"
                     break
-
 
                 case 5:
                     data = "CHECKPOINT;SELECT pg_terminate_backend(42);";
@@ -312,9 +326,6 @@ globalThis.pgl_conf = pgl_conf
 
 
 
-                case 2:
-                    data = "CREATE USER test_user WITH PASSWORD 'md5abdbecd56d5fbd2cdaee3d0fa9e4f434';"
-                    break
 
                 case 3:
                     data = "CREATE DATABASE test_user WITH OWNER = test_user;"
@@ -379,7 +390,7 @@ globalThis.pgl_conf = pgl_conf
         function prerun(vm) {
             console.log("prerun(js)", PGDATA)
             vm.FS.mkdir(PGDATA)
-            vm.FS.mount(vm.FS.filesystems.IDBFS, {autoPersist: true}, PGDATA)
+            vm.FS.mount(vm.IDBFS, {autoPersist: true}, PGDATA)
         }
 
 
@@ -405,9 +416,11 @@ globalThis.pgl_conf = pgl_conf
 
             console.warn("calling initdb")
 
-            const idb = vm._pg_initdb()
+            const idb = vm._pgl_initdb()
 
             console.warn("initdb ==", idb)
+
+            var editconf = true
 
             if (!idb) {
                 console.error("FATAL: INITDB failed to return value");
@@ -430,6 +443,7 @@ globalThis.pgl_conf = pgl_conf
                         // vm.readline("SET ROLE test_user;");
                     }
                     console.error("Invalid user ?");
+                    editconf = false;
                 } else {
                     console.warn(" TODO:  create db+user here / callback / throw ")
 /*
@@ -447,7 +461,6 @@ SET ROLE test_user;
 */
                 }
 
-
 /*
                 vm.PGDATA = PGDATA
                 await pgl_conf(vm,{"shared_preload_libraries" : ["pg_stat_statements"]}, {})
@@ -458,14 +471,17 @@ pg_stat_statements.track = all
 */
 
                     vm.PGDATA = PGDATA
-
-                    pgl_conf(vm, {
+                if (editconf) {
+                    await pgl_conf(vm, {
                         "shared_preload_libraries" : ["pg_stat_statements"],
                         "compute_query_id" : "on",
                         "pg_stat_statements.max" : "10000",
                         "pg_stat_statements.track": "all",
                     })
+                }
             }
+
+            vm._pgl_backend()
 
             setTimeout(test_drive, 1500)
         }
@@ -558,7 +574,7 @@ pg_stat_statements.track = all
 
             load_package: load_package,
 // "PGDATABASE=test_user", "PGUSER=test_user"
-            arguments : ["--single", "postgres", "--", "PGDATA=/tmp/pglite/base", "PREFIX=/tmp/pglite", "PGUSER=postgres", "REPL=N"],
+            arguments : ["--single", "postgres", "--", "PGDATA=/tmp/pglite/base", "PREFIX=/tmp/pglite", "PGUSER=test_user", "REPL=N"],
 
             config : {
                 cdn : "https://pygame-web.github.io/archives/0.9/",
@@ -707,7 +723,7 @@ pg_stat_statements.track = all
 
         const { WasmTerminal } = await /**/ import("./vtx.js")
 
-        Module.vt = new WasmTerminal("repl", 200, 52, 10)
+        Module.vt = new WasmTerminal("repl", 200, 60, 10)
 
         Module.bc = new BroadcastChannel("pglite")
 

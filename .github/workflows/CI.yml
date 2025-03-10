@@ -38,7 +38,7 @@ jobs:
 
       - name: Build postgresql WASM via portable-emsdk
         run: |
-          bash ./ci-17_2_WASM.sh
+          bash ./ci-17_4_WASM.sh
 
       - name: Upload sdk to Github Releases
         if: github.event_name == 'release'
@@ -56,8 +56,7 @@ jobs:
 #          branch: gh-pages
 #          folder: /tmp/fs/tmp/web
 
-      - name: Test pglite
+      - name: run pglite tests with vitest
         run: |
-           echo test skipped
-#          bash ./cibuild.sh pglite-test
+          bash ./runtests.sh
 

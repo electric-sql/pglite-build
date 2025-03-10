@@ -32,7 +32,8 @@ pushd build/vector
     # path for wasm-shared already set to (pwd:pg build dir)/bin
     # OPTFLAGS="" turns off arch optim (sse/neon).
     PG_CONFIG=${PGROOT}/bin/pg_config emmake make OPTFLAGS="" install || exit 33
-    cp sql/vector.sql sql/vector--0.7.3.sql ${PGROOT}/share/postgresql/extension
+
+    cp sql/vector.sql sql/vector--0.8.0.sql ${PGROOT}/share/postgresql/extension/
     rm ${PGROOT}/share/postgresql/extension/vector--?.?.?--?.?.?.sql ${PGROOT}/share/postgresql/extension/vector.sql
 popd
 

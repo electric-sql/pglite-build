@@ -127,6 +127,13 @@ else
 
     export XML2_CONFIG=$PREFIX/bin/xml2-config
 
+    if $USE_ICU
+    then
+        CNF_ICU="--with-icu"
+    else
+        CNF_ICU="--without-icu"
+    fi
+
 
     cp ${PGSRC}/src/include/port/wasm_common.h /tmp/pglite/include/wasm_common.h
 
@@ -137,7 +144,7 @@ else
     CNF="${PGSRC}/configure --prefix=${PGROOT} --cache-file=${PGROOT}/config.cache.${BUILD} \
  --disable-spinlocks --disable-largefile --without-llvm \
  --without-pam --disable-largefile --with-openssl=no \
- --without-readline --without-icu \
+ --without-readline $CNF_ICU \
  ${UUID} ${XML2} ${PGDEBUG}"
 
 
@@ -318,7 +325,7 @@ Linking ...
 '
 cat $SDKROOT/VERSION
 rm -vf libp*.a src/backend/postgres*
-EMCC_CFLAGS="${CC_PGLITE} ${EMCC_NODE}" emmake make AR=\${EMSDK}/upstream/bin/llvm-ar $BUILD=1 -j \${NCPU:-$NCPU} \$@
+EMCC_CFLAGS="${CC_PGLITE} ${EMCC_NODE}" emmake make AR=\${EMSDK}/upstream/bin/llvm-ar PORTNAME=emscripten $BUILD=1 -j \${NCPU:-$NCPU} \$@
 
 echo '____________________________________________________________'
 du -hs src/port/libpgport_srv.a src/common/libpgcommon_srv.a libp*.a src/backend/postgres*
@@ -327,7 +334,6 @@ echo '____________________________________________________________'
 END
 
     chmod +x pg-make.sh
-#    pg-link.sh
 
     if env -i ./pg-make.sh install
     then
@@ -347,6 +353,15 @@ END
             popd
             cp src/backend/postgres.wasi $PGROOT/bin/ || exit 253
         else
+            if $DEBUG
+            then
+                # built with EMCC_CFLAGS="-sEXIT_RUNTIME=1 -DEXIT_RUNTIME -sNODERAWFS -sENVIRONMENT=node" emmake make -C
+                cp src/bin/initdb/initdb.wasm $PGROOT/bin/
+
+                cp src/backend/postgres.wasm $PGROOT/bin/
+
+            fi
+
             mv src/bin/pg_config/pg_config.wasm ${PGROOT}/bin/
             cat > ${PGROOT}/bin/pg_config <<END
 #!/bin/bash

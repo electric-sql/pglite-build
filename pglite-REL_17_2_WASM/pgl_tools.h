@@ -3,6 +3,8 @@
 
 #define STROPS_BUF 1024
 
+char tmpstr[STROPS_BUF];
+
 static
 void mkdirp(const char *p) {
 	if (!mkdir(p, 0700)) {
@@ -24,6 +26,12 @@ strconcat(char*p, const char *head, const char *tail) {
     p += len;
     *p = '\0';
 
+}
+
+const char *
+setdefault(const char* key, const char *value) {
+    setenv(key, value, 0);
+    return getenv(key);
 }
 
 char *

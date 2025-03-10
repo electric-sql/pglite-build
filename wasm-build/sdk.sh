@@ -5,6 +5,10 @@ then
     exit 0
 fi
 
+# GLOBAL BASE probable bug here
+# https://github.com/emscripten-core/emscripten/blob/ac676d5e437525d15df5fd46bc2c208ec6d376a3/tools/link.py#L1652-L1658
+
+
 if python3 -V
 then
     echo using installed python3

@@ -1,5 +1,6 @@
 #define PGL_MAIN
 #define PGL_INITDB_MAIN
+// #define PGDEBUG_STARTUP
 
 // MEMFS files for os pipe simulation
 #define IDB_PIPE_BOOT "/tmp/initdb.boot.txt"
@@ -18,8 +19,6 @@
 
 // globals
 
-//17
-// void *		dummy_spinlock;
 #define MemoryContextResetAndDeleteChildren(...)
 #define SpinLockInit(...)
 
@@ -29,15 +28,20 @@ int g_argc;
 char **g_argv;
 extern char ** environ;
 
-const char *PREFIX;
-const char *PGDATA;
+volatile char *PREFIX;
+volatile char *PGDATA;
+volatile char *PGUSER;
+
 const char * progname;
 
 volatile bool is_repl = true;
 volatile bool is_node = true;
 volatile bool is_embed = false;
-volatile int pg_idb_status;
+volatile int pgl_idb_status;
 
+// will backend restart after initdb. defaut is yes.
+// TODO: log sync start failures and ask to repair/clean up db.
+volatile int async_restart = 1;
 
 #define IDB_OK  0b11111110
 #define IDB_FAILED  0b0001
@@ -85,6 +89,10 @@ bool quote_all_identifiers = false;
 FILE* SOCKET_FILE = NULL;
 int SOCKET_DATA = 0;
 */
+
+void pg_free(void *ptr) {
+    free(ptr);
+}
 
 #include "../backend/tcop/postgres.c"
 
@@ -171,24 +179,10 @@ extra_env:;
         }
     }
 
-    {
-        // set default
-        setenv("PREFIX", WASM_PREFIX, 0);
-        PREFIX = getenv("PREFIX");
-        argv[0] = strcat_alloc( PREFIX, "/bin/postgres");
-    }
+    // get default or set default if not set
+    PREFIX = setdefault("PREFIX", WASM_PREFIX);
+    argv[0] = strcat_alloc( PREFIX, "/bin/postgres");
 
-
-    {
-        // set defautl
-    	setenv("PGDATA", WASM_PGDATA , 0);
-        PGDATA = getenv("PGDATA");
-#if PGDEBUG
-puts("    ----------- test ----------------" );
-        puts(PGDATA);
-puts("    ----------- /test ----------------" );
-#endif
-    }
 
 
 #if defined(__EMSCRIPTEN__)
@@ -201,7 +195,7 @@ puts("    ----------- /test ----------------" );
     if (is_node) {
     	setenv("ENVIRONMENT", "node" , 1);
         EM_ASM({
-#if PGDEBUG
+#if defined(PGDEBUG_STARTUP)
             console.warn("prerun(C-node) worker=", Module.is_worker);
 #endif
             Module['postMessage'] = function custom_postMessage(event) {
@@ -211,7 +205,7 @@ puts("    ----------- /test ----------------" );
 
     } else {
     	setenv("ENVIRONMENT", "web" , 1);
-#if PGDEBUG
+#if defined(PGDEBUG_STARTUP)
         EM_ASM({
             console.warn("prerun(C-web) worker=", Module.is_worker);
         });
@@ -221,7 +215,7 @@ puts("    ----------- /test ----------------" );
 
     EM_ASM({
         if (Module.is_worker) {
-#if PGDEBUG
+#if defined(PGDEBUG_STARTUP)
             console.log("Main: running in a worker, setting onCustomMessage");
 #endif
             function onCustomMessage(event) {
@@ -229,7 +223,7 @@ puts("    ----------- /test ----------------" );
             };
             Module['onCustomMessage'] = onCustomMessage;
         } else {
-#if PGDEBUG
+#if defined(PGDEBUG_STARTUP)
             console.log("Running in main thread, faking onCustomMessage");
 #endif
             Module['postMessage'] = function custom_postMessage(event) {
@@ -275,15 +269,25 @@ puts("    ----------- /test ----------------" );
  * serves as popen output
  */
 
-	setenv("LC_CTYPE", "C" , 1);
+	setenv("LC_CTYPE", "en_US.UTF-8" , 1);
 
     /* defaults */
 
     setenv("TZ", "UTC", 0);
     setenv("PGTZ", "UTC", 0);
-	setenv("PGUSER", WASM_USERNAME , 0);
 	setenv("PGDATABASE", "template1" , 0);
     setenv("PG_COLOR", "always", 0);
+
+
+    /* defaults with possible user setup */
+    PGUSER = setdefault("PGUSER", WASM_USERNAME);
+
+    /* temp override for inidb */
+    setenv("PGUSER",  WASM_USERNAME, 1);
+
+    strconcat(tmpstr, PREFIX, "/base" );
+    PGDATA = setdefault("PGDATA", tmpstr);
+
 
 #if PGDEBUG
     puts("# ============= env dump ==================");
@@ -298,7 +302,7 @@ puts("    ----------- /test ----------------" );
 
 
 void main_post() {
-PDEBUG("# 622: main_post()");
+PDEBUG("# 306: main_post()");
         /*
          * Fire up essential subsystems: error and memory management
          *
@@ -348,74 +352,110 @@ PDEBUG("# 622: main_post()");
 } // main_post
 
 
+__attribute__((export_name("pgl_backend")))
+void pgl_backend() {
+#if PGDEBUG
+    print_bits(sizeof(pgl_idb_status), &pgl_idb_status);
+#endif
+    if (!(pgl_idb_status&IDB_CALLED)) {
+        puts("# 349: initdb must be called before starting/resuming backend");
+        //abort();
+    }
+
+    if (async_restart) {
+        PDEBUG("# 354: backend was started by initdb");
+        goto backend_started;
+
+    }
+
+    main_post();
+
+    char *single_argv[] = {
+        g_argv[0],
+        "--single",
+        "-d", "1", "-B", "16", "-S", "512", "-f", "siobtnmh",
+        "-D", PGDATA,
+        "-F", "-O", "-j",
+        WASM_PGOPTS,
+        getenv("PGDATABASE"),
+        NULL
+    };
+    int single_argc = sizeof(single_argv) / sizeof(char*) - 1;
+    optind = 1;
+#if PGDEBUG
+        fprintf(stdout, "\n\n\n# 483: resuming db with user '%s' instead of %s\n", PGUSER, getenv("PGUSER"));
+#endif
+    setenv("PGUSER", PGUSER, 1);
+
+    AsyncPostgresSingleUserMain(single_argc, single_argv, PGUSER, async_restart);
+
+
+backend_started:;
+    IsPostmasterEnvironment = true;
+    if (TransamVariables->nextOid < ((Oid) FirstNormalObjectId)) {
+        /* IsPostmasterEnvironment is now true
+         these will be executed when required in varsup.c/GetNewObjectId
+    	 TransamVariables->nextOid = FirstNormalObjectId;
+	     TransamVariables->oidCount = 0;
+        */
+#if PGDEBUG
+        puts("# 382: initdb done, oid base too low but OID range will be set because IsPostmasterEnvironment");
+#endif
+    }
+}
 
 #if defined(__EMSCRIPTEN__)
 EMSCRIPTEN_KEEPALIVE
 #else
-__attribute__((export_name("pg_initdb")))
+__attribute__((export_name("pgl_initdb")))
 #endif
 int
-pg_initdb() {
+pgl_initdb() {
     PDEBUG("# 352: pg_initdb()");
     optind = 1;
-    int async_restart = 1;
-    pg_idb_status |= IDB_FAILED;
+    pgl_idb_status |= IDB_FAILED;
 
     if (!chdir(PGDATA)){
         if (access("PG_VERSION", F_OK) == 0) {
         	chdir("/");
 
-            pg_idb_status |= IDB_HASDB;
+            pgl_idb_status |= IDB_HASDB;
 
             /* assume auth success for now */
-            pg_idb_status |= IDB_HASUSER;
+            pgl_idb_status |= IDB_HASUSER;
 #if PGDEBUG
-            printf("# 366: pg_initdb: db exists at : %s TODO: test for db name : %s \n", getenv("PGDATA"), getenv("PGDATABASE"));
-//            print_bits(sizeof(pg_idb_status), &pg_idb_status);
+            fprintf(stdout, "# 414: pg_initdb: db exists at : %s TODO: test for db name : %s \n", PGDATA, getenv("PGDATABASE"));
 #endif // PGDEBUG
-            main_post();
 
             async_restart = 0;
-            {
-                char *single_argv[] = {
-                    g_argv[0],
-                    "--single",
-                    "-d", "1", "-B", "16", "-S", "512", "-f", "siobtnmh",
-                    "-D", getenv("PGDATA"),
-                    "-F", "-O", "-j",
-                    WASM_PGOPTS,
-                    getenv("PGDATABASE"),
-                    NULL
-                };
-                int single_argc = sizeof(single_argv) / sizeof(char*) - 1;
-                optind = 1;
-                AsyncPostgresSingleUserMain(single_argc, single_argv, strdup(getenv("PGUSER")), async_restart);
-            }
-
             goto initdb_done;
         }
     	chdir("/");
 #if PGDEBUG
-        printf("# 399: pg_initdb no db found at : %s\n", getenv("PGDATA") );
+        fprintf(stderr, "# 424: pg_initdb no db found at : %s\n", PGDATA );
+#endif // PGDEBUG
+    } else {
+#if PGDEBUG
+        fprintf(stderr, "# 428: pg_initdb db folder not found at : %s\n", PGDATA );
 #endif // PGDEBUG
     }
 
     int initdb_rc = pgl_initdb_main();
 
 #if PGDEBUG
-    printf("# 399: " __FILE__ "pgl_initdb_main = %d\n", initdb_rc );
+    fprintf(stderr, "\n\n# 435: " __FILE__ "pgl_initdb_main = %d\n", initdb_rc );
 #endif // PGDEBUG
-    PDEBUG("# 401:" __FILE__);
+    PDEBUG("# 437:" __FILE__);
     /* save stdin and use previous initdb output to feed boot mode */
     int saved_stdin = dup(STDIN_FILENO);
     {
-        PDEBUG("# 405: restarting in boot mode for initdb");
+        PDEBUG("# 441: restarting in boot mode for initdb");
         freopen(IDB_PIPE_BOOT, "r", stdin);
 
         char *boot_argv[] = {
             g_argv[0],
             "--boot",
-            "-D", getenv("PGDATA"),
+            "-D", getenv("PGDATA"), // ????????
             "-d","3",
             WASM_PGOPTS,
             "-X", "1048576",
@@ -431,7 +471,7 @@ pg_initdb() {
         remove(IDB_PIPE_BOOT);
         stdin = fdopen(saved_stdin, "r");
 
-        PDEBUG("# 427: initdb faking shutdown to complete WAL/OID states");
+        PDEBUG("# 467: initdb faking shutdown to complete WAL/OID states");
         pg_proc_exit(66);
     }
 
@@ -441,13 +481,14 @@ pg_initdb() {
     //IsPostmasterEnvironment = true;
     if (TransamVariables->nextOid < ((Oid) FirstNormalObjectId)) {
 #if PGDEBUG
-        puts("# 633: warning oid base too low, will need to set OID range after initdb(bootstrap/single)");
+        puts("# 477: warning oid base too low, will need to set OID range after initdb(bootstrap/single)");
 #endif
     }
 
     {
-        PDEBUG("# 442: restarting in single mode for initdb");
-
+#if PGDEBUG
+        fprintf(stdout, "\n\n\n# 483: restarting in single mode for initdb with user '%s' instead of %s\n", getenv("PGUSER"), PGUSER);
+#endif
         char *single_argv[] = {
             WASM_PREFIX "/bin/postgres",
             "--single",
@@ -460,33 +501,24 @@ pg_initdb() {
         };
         int single_argc = sizeof(single_argv) / sizeof(char*) - 1;
         optind = 1;
-        RePostgresSingleUserMain(single_argc, single_argv, strdup( getenv("PGUSER")));
+        RePostgresSingleUserMain(single_argc, single_argv, WASM_USERNAME);
+PDEBUG("# 498: initdb faking shutdown to complete WAL/OID states in single mode");
+        async_restart = 1;
     }
 
 initdb_done:;
-    pg_idb_status |= IDB_CALLED;
-    IsPostmasterEnvironment = true;
-    if (TransamVariables->nextOid < ((Oid) FirstNormalObjectId)) {
-        /* IsPostmasterEnvironment is now true
-         these will be executed when required in varsup.c/GetNewObjectId
-    	 TransamVariables->nextOid = FirstNormalObjectId;
-	     TransamVariables->oidCount = 0;
-        */
-#if PGDEBUG
-        puts("# 922: initdb done, oid base too low but OID range will be set because IsPostmasterEnvironment");
-#endif
-    }
+    pgl_idb_status |= IDB_CALLED;
 
     if (optind>0) {
         /* RESET getopt */
         optind = 1;
         /* we did not fail, clear the default failed state */
-        pg_idb_status &= IDB_OK;
+        pgl_idb_status &= IDB_OK;
     } else {
-        PDEBUG("# 479: exiting on initdb-single error");
+        PDEBUG("# 511: exiting on initdb-single error");
         // TODO raise js exception
     }
-    return pg_idb_status;
+    return pgl_idb_status;
 } // pg_initdb
 
 
@@ -501,12 +533,11 @@ main_repl() {
 
     if (!mkdir(WASM_PGDATA, 0700)) {
         /* no db : run initdb now. */
-#if PGDEBUG
+#if defined(PGDEBUG_STARTUP)
         fprintf(stderr, "PGDATA=%s not found, running initdb with defaults\n", WASM_PGDATA );
 #endif
         #if defined(PG_INITDB_MAIN)
             #warning "web build"
-puts("# 502");
             hadloop_error = pg_initdb() & IDB_FAILED;
         #else
             #warning "node build"
@@ -519,11 +550,7 @@ puts("# 502");
         // download a db case ?
     	mkdirp(WASM_PGDATA);
 
-        // db fixup because empty dirs are not packaged
-	    /*
-	    mkdirp(WASM_PREFIX "/lib");
-	    mkdirp(WASM_PREFIX "/lib/postgresql");
-	    */
+        // db fixup because empty dirs may not be packaged in git case
 	    mksub_dir(PGDATA, "/pg_wal");
 	    mksub_dir(PGDATA, "/pg_wal/archive_status");
 	    mksub_dir(PGDATA, "/pg_wal/summaries");
@@ -534,7 +561,6 @@ puts("# 502");
 	    mksub_dir(PGDATA, "/pg_notify");
 	    mksub_dir(PGDATA, "/pg_replslot");
 	    mksub_dir(PGDATA, "/pg_twophase");
-
 
 	    mksub_dir(PGDATA, "/pg_logical");
 	    mksub_dir(PGDATA, "/pg_logical/snapshots");
@@ -575,7 +601,7 @@ puts("# 502");
         }
 
         PDEBUG("# 570: single: " __FILE__ );
-        AsyncPostgresSingleUserMain(g_argc, g_argv, strdup(getenv("PGUSER")), 0);
+        AsyncPostgresSingleUserMain(g_argc, g_argv, strdup(PGUSER), 0);
     }
     return 0;
 }
@@ -609,8 +635,8 @@ main(int argc, char **argv)
     int exit_code = 0;
     main_pre(argc,argv);
 #if PGDEBUG
-    printf("# 1249: argv0 (%s) PGUSER=%s PGDATA=%s\n PGDATABASE=%s REPL=%s\n",
-        argv[0], getenv("PGUSER"), getenv("PGDATA"),  getenv("PGDATABASE"), getenv("REPL") );
+    printf("# 616: argv0 (%s) PGUSER=%s PGDATA=%s\n PGDATABASE=%s REPL=%s\n",
+        argv[0], PGUSER, PGDATA,  getenv("PGDATABASE"), getenv("REPL") );
 #endif
 	progname = get_progname(argv[0]);
     startup_hacks(progname);
@@ -621,19 +647,21 @@ main(int argc, char **argv)
     is_embed = true;
 
     if (!is_repl) {
-        PDEBUG("# 312: exit with live runtime (nodb)");
+        PDEBUG("# 628: exit with live runtime (nodb)");
         return 0;
     }
+/*
+    main_post();
 
-    PDEBUG("# 621: repl");
+    PDEBUG("# 634: repl");
     // so it is repl
     main_repl();
 
     if (is_node) {
-        PDEBUG("# 626: node repl");
+        PDEBUG("# 639: node repl");
         pg_repl_raf();
     }
-
+*/
     emscripten_force_exit(exit_code);
 	return exit_code;
 }

@@ -38,23 +38,25 @@ else
     export CC=$(which emcc)
 
 
+    EXPORTED_FUNCTIONS="_main,_use_wire,_ping,_pgl_initdb,_pgl_backend,_pgl_shutdown,_interactive_write,_interactive_read,_interactive_one"
+
+    EXPORTED_RUNTIME_METHODS="MEMFS,IDBFS,FS,FS_mount,FS_syncfs,FS_analyzePath,setValue,getValue,UTF8ToString,stringToNewUTF8,stringToUTF8OnStack"
+    EXPORTED_RUNTIME_METHODS="MEMFS,IDBFS,FS,setValue,getValue,UTF8ToString,stringToNewUTF8,stringToUTF8OnStack"
+
+
+
     if $DEBUG
     then
-        LOPTS="-O2 -g3 --no-wasm-opt -sASSERTIONS=1"
         # FULL
-        LINKER="-sMAIN_MODULE=1 -sEXPORTED_FUNCTIONS=_main,_use_wire,_ping,_pg_shutdown,_interactive_write,_interactive_read,_interactive_one"
-
+        LINKER="-sMAIN_MODULE=1 -sEXPORTED_FUNCTIONS=${EXPORTED_FUNCTIONS}"
     else
-        LOPTS="-Oz -g0 --closure 1 -sASSERTIONS=0"
         # min
         # LINKER="-sMAIN_MODULE=2"
 
         # tailored
         LINKER="-sMAIN_MODULE=2 -sEXPORTED_FUNCTIONS=@exports"
-
+LINKER="-sMAIN_MODULE=1 -sEXPORTED_FUNCTIONS=${EXPORTED_FUNCTIONS}"
     fi
-
-    LOPTS="-O2 -g3"
 
     echo "
 
@@ -80,6 +82,8 @@ Folders :
 
  CC_PGLITE : $CC_PGLITE
 
+  ICU i18n : $USE_ICU
+
 $PGPRELOAD
 ________________________________________________________
 
@@ -91,21 +95,47 @@ ________________________________________________________
 
     mkdir -p $WEBROOT
 
+    if $USE_ICU
+    then
+        LINK_ICU="${PREFIX}/lib/libicui18n.a ${PREFIX}/lib/libicuuc.a ${PREFIX}/lib/libicudata.a"
+    else
+        LINK_ICU=""
+    fi
+
 #    ${CC} ${CC_PGLITE} -DPG_INITDB_MAIN \
 #     ${PGINC} \
 #     -o ${PGBUILD}/initdb.o -c ${PGSRC}/src/bin/initdb/initdb.c
 
-    ${CC} ${CC_PGLITE} ${PGINC} -o ${PGBUILD}/pglite.o -c ${WORKSPACE}/pglite/pg_main.c
+    ${CC} ${CC_PGLITE} ${PGINC} -o ${PGBUILD}/pglite.o -c ${WORKSPACE}/pglite-wasm/pg_main.c \
+     -Wno-incompatible-pointer-types-discards-qualifiers
+
+    COPTS="$LOPTS" ${CC} ${CC_PGLITE} -sGLOBAL_BASE=${CMA_MB}MB -o pglite-rawfs.js -ferror-limit=1  \
+     -sFORCE_FILESYSTEM=1 $EMCC_NODE \
+         -sALLOW_TABLE_GROWTH -sALLOW_MEMORY_GROWTH -sERROR_ON_UNDEFINED_SYMBOLS \
+         -sEXPORTED_RUNTIME_METHODS=${EXPORTED_RUNTIME_METHODS} \
+     ${PGINC} ${PGBUILD}/pglite.o \
+     $LINKER $LIBPGCORE \
+     $LINK_ICU \
+     -lnodefs.js -lidbfs.js -lxml2 -lz
 
 
-    COPTS="$LOPTS" ${CC} ${CC_PGLITE} -sGLOBAL_BASE=8388608 -o pglite.html -ferror-limit=1 --shell-file ${WORKSPACE}/pglite/repl.html \
+    # some content that does not need to ship into .data
+    for cleanup in snowball_create.sql psqlrc.sample
+    do
+        > ${PREFIX}/${cleanup}
+    done
+
+
+    COPTS="$LOPTS" ${CC} ${CC_PGLITE} -sGLOBAL_BASE=${CMA_MB}MB -o pglite.html -ferror-limit=1 --shell-file ${WORKSPACE}/pglite-wasm/repl.html \
      $PGPRELOAD \
-     -sNO_EXIT_RUNTIME=1 -sFORCE_FILESYSTEM=1 -sENVIRONMENT=node,web \
+     -sFORCE_FILESYSTEM=1 -sNO_EXIT_RUNTIME=1 -sENVIRONMENT=node,web \
      -sMODULARIZE=1 -sEXPORT_ES6=1 -sEXPORT_NAME=Module \
          -sALLOW_TABLE_GROWTH -sALLOW_MEMORY_GROWTH -sERROR_ON_UNDEFINED_SYMBOLS \
-         -sEXPORTED_RUNTIME_METHODS=FS,setValue,getValue,UTF8ToString,stringToNewUTF8,stringToUTF8OnStack \
+         -sEXPORTED_RUNTIME_METHODS=${EXPORTED_RUNTIME_METHODS} \
      ${PGINC} ${PGBUILD}/pglite.o \
-     $LINKER $LIBPGCORE -lnodefs.js -lidbfs.js -lxml2 -lz
+     $LINKER $LIBPGCORE \
+     $LINK_ICU \
+     -lnodefs.js -lidbfs.js -lxml2 -lz
 
 fi
 

@@ -4,35 +4,46 @@ export PG_VERSION=${PG_VERSION:-REL_16_6_WASM}
 
 #set -x;
 #set -e;
+export LC_ALL=C
 
 export CI=${CI:-false}
 export PORTABLE=${PORTABLE:-$(pwd)/wasm-build}
 export SDKROOT=${SDKROOT:-/tmp/sdk}
 
-export CMA_MB=${CMA_MB:-8}
-export TOTAL_MEMORY=${TOTAL_MEMORY:-196MB}
-export WASI=${WASI:-false}
 
 # data transfer zone this is == (wire query size + result size ) + 2
-# expressed in EMSDK MB
+# expressed in EMSDK MB, max is 13MB on emsdk 3.1.74+
+export CMA_MB=${CMA_MB:-12}
+export TOTAL_MEMORY=${TOTAL_MEMORY:-180MB}
+export WASI=${WASI:-false}
 
-export COPTS=${COPTS:-"-O2 -g3"}
-# export LOPTS=${LOPTS:-"-Oz -g0 --closure 1"}
 export WORKSPACE=${GITHUB_WORKSPACE:-$(pwd)}
 export PGROOT=${PGROOT:-/tmp/pglite}
 export WEBROOT=${WEBROOT:-/tmp/web}
 export DEBUG=${DEBUG:-true}
-export PGDATA=${PGROOT}/base
+
+export USE_ICU=${USE_ICU:-false}
 export PGUSER=${PGUSER:-postgres}
+
+[ -f /portable.opts ] && . /portable.opts
+
+
+if $DEBUG
+then
+    export COPTS=${COPTS:-"-O2 -g3"}
+    export LOPTS=${LOPTS:-"-O2 -g3 --no-wasm-opt -sASSERTIONS=1"}
+else
+    export COPTS=${COPTS:-"-Oz -g0"}
+    export LOPTS=${LOPTS:-'-Oz -g0 --closure=0 --closure-args=--externs=/tmp/externs.js -sASSERTIONS=0'}
+fi
+
+export PGDATA=${PGROOT}/base
 export PGPATCH=${WORKSPACE}/patches
 
 chmod +x ${PORTABLE}/*.sh ${PORTABLE}/extra/*.sh
 
-[ -f /portable.opts ] && . /portable.opts
-
 # exit on error
 EOE=false
-
 
 if ${PORTABLE}/sdk.sh
 then
@@ -243,7 +254,7 @@ else
 #define I_PGDEBUG
 #define WASM_USERNAME "$PGUSER"
 #define PGDEBUG 1
-#define PDEBUG(string) puts(string)
+#define PDEBUG(string) fputs(string, stdout)
 #define JSDEBUG(string) {EM_ASM({ console.log(string); });}
 #define ADEBUG(string) { PDEBUG(string); JSDEBUG(string) }
 #endif
@@ -363,6 +374,16 @@ then
 
     for extdir in postgresql/contrib/*
     do
+        if [ -f ${PGROOT}/dump.vector ]
+        then
+            echo "
+
+    *   NOT rebuilding extensions
+
+"
+            break
+        fi
+
         if [ -d "$extdir" ]
         then
             ext=$(echo -n $extdir|cut -d/ -f3)
@@ -375,7 +396,7 @@ then
         Building contrib extension : $ext : begin
 "
                 pushd build/postgres/contrib/$ext
-                if PATH=$PREFIX/bin:$PATH emmake make install
+                if PATH=$PREFIX/bin:$PATH emmake make install 2>&1 >/dev/null
                 then
                     echo "
         Building contrib extension : $ext : end
@@ -389,7 +410,8 @@ then
                     exit 216
                 fi
                 popd
-                python3 ${PORTABLE}/pack_extension.py
+
+                python3 ${PORTABLE}/pack_extension.py 2>&1 >/dev/null
 
             fi
         fi
@@ -495,7 +517,7 @@ do
 
 __________________________ enabled extensions (dlfcn)_____________________________
 "
-    cp -vf ${WEBROOT}/*.tar.gz ${PGLITE}/release/
+    cp -vf ${WEBROOT}/*.tar.gz ${PGLITE}/release/ | wc -l
 echo "
 __________________________________________________________________________________
 "
@@ -573,7 +595,7 @@ ________________________________________________________________________________
             #rm $PGLITE/release/*
 
             # copy packed extensions
-            cp -vf ${WEBROOT}/*.tar.gz ${PGLITE}/release/
+            cp -vf ${WEBROOT}/*.tar.gz ${PGLITE}/release/ | wc -l
             cp -vf ${WEBROOT}/postgres.{js,data,wasm} $PGLITE/release/
         ;;
 
@@ -588,7 +610,7 @@ ________________________________________________________________________________
     shift
 done
 
-if [ -f  ${WORKSPACE}/pglite/build.sh ]
+if [ -f  ${WORKSPACE}/pglite-wasm/build.sh ]
 then
-    ${WORKSPACE}/pglite/build.sh
+    ${WORKSPACE}/pglite-wasm/build.sh
 fi

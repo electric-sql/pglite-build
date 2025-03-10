@@ -1,15 +1,22 @@
 #!/usr/bin/env bash
-export PG_VERSION=${PG_VERSION:-REL_17_2_WASM}
+export PG_VERSION=${PG_VERSION:-REL_17_4_WASM}
 export PORTABLE=$(realpath $(dirname $0))
 export ROOT=$(realpath $(pwd))
 export SDKROOT=${SDKROOT:-/tmp/sdk}
 
 echo "
+==================================================================================================
+==================================================================================================
 
 PORTABLE=$PORTABLE
 ROOT=$ROOT
 PG_VERSION=$PG_VERSION
 SDKROOT=$SDKROOT
+DEBUG=$DEBUG
+USE_ICU=$USE_ICU
+
+==================================================================================================
+==================================================================================================
 
 "
 

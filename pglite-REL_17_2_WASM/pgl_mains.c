@@ -5,7 +5,7 @@ volatile bool inloop = false;
 volatile sigjmp_buf local_sigjmp_buf;
 bool repl = false;
 
-__attribute__((export_name("pg_shutdown")))
+__attribute__((export_name("pgl_shutdown")))
 void
 pg_shutdown() {
     PDEBUG("# 11:" __FILE__": pg_shutdown");
@@ -15,8 +15,8 @@ pg_shutdown() {
 
 void
 interactive_file() {
-	int			firstchar;
-	int			c;				/* character read from getc() */
+	int			firstchar = 0;
+	int			c = 0;				/* character read from getc() */
 	StringInfoData input_message;
 	StringInfoData *inBuf;
     FILE *stream ;
@@ -38,33 +38,19 @@ interactive_file() {
     inBuf = &input_message;
 	DoingCommandRead = true;
 
-	//firstchar = ReadCommand(&input_message);
-	if (whereToSendOutput == DestRemote)
-		firstchar = SocketBackend(&input_message);
-	else {
+    stream = single_mode_feed;
 
-	    /*
-	     * display a prompt and obtain input from the user
-	     */
-        if (!single_mode_feed) {
-	        printf("pg> %c\n", 4);
-        	fflush(stdout);
-            stream = stdin;
-        } else {
-            stream = single_mode_feed;
-        }
-
-	    resetStringInfo(inBuf);
-	    while ((c = getc(stream)) != EOF)
-	    {
+    while (c!=EOF) {
+    	resetStringInfo(inBuf);
+	    while ((c = getc(stream)) != EOF) {
 		    if (c == '\n')
 		    {
 			    if (UseSemiNewlineNewline)
 			    {
 				    /*
-				     * In -j mode, semicolon followed by two newlines ends the
-				     * command; otherwise treat newline as regular character.
-				     */
+				        * In -j mode, semicolon followed by two newlines ends the
+				        * command; otherwise treat newline as regular character.
+				        */
 				    if (inBuf->len > 1 &&
 					    inBuf->data[inBuf->len - 1] == '\n' &&
 					    inBuf->data[inBuf->len - 2] == ';')
@@ -76,9 +62,9 @@ interactive_file() {
 			    else
 			    {
 				    /*
-				     * In plain mode, newline ends the command unless preceded by
-				     * backslash.
-				     */
+				        * In plain mode, newline ends the command unless preceded by
+				        * backslash.
+				        */
 				    if (inBuf->len > 0 &&
 					    inBuf->data[inBuf->len - 1] == '\\')
 				    {
@@ -98,22 +84,23 @@ interactive_file() {
 
 		    /* Not newline, or newline treated as regular character */
 		    appendStringInfoChar(inBuf, (char) c);
-	    }
-
-	    if (c == EOF && inBuf->len == 0) {
-		    firstchar = EOF;
-        } else {
-        	/* Add '\0' to make it look the same as message case. */
-	        appendStringInfoChar(inBuf, (char) '\0');
-        	firstchar = 'Q';
         }
 
+
+        if (c == EOF && inBuf->len == 0)
+            return;
+
+        /* Add '\0' to make it look the same as message case. */
+        appendStringInfoChar(inBuf, (char) '\0');
+        firstchar = 'Q';
+PDEBUG(inBuf->data);
+
+// ???
+        if (ignore_till_sync && firstchar != EOF)
+            continue;
+
+        #include "pg_proto.c"
     }
-
-	if (ignore_till_sync && firstchar != EOF)
-		return;
-
-    #include "pg_proto.c"
 }
 
 void
@@ -205,130 +192,17 @@ PDEBUG("# 164:" __FILE__);
     initStringInfo(&row_description_buf);
     MemoryContextSwitchTo(TopMemoryContext);
 
-#if 1 // defined(__wasi__)
-    puts("# 210: sjlj exception handler off in initdb");
+#if defined(__wasi__)
+    puts("# 210: sjlj exception handler off in initdb-wasi");
 #else
-    if (sigsetjmp(local_sigjmp_buf, 1) != 0)
-    {
-        /*
-         * NOTE: if you are tempted to add more code in this if-block,
-         * consider the high probability that it should be in
-         * AbortTransaction() instead.  The only stuff done directly here
-         * should be stuff that is guaranteed to apply *only* for outer-level
-         * error recovery, such as adjusting the FE/BE protocol status.
-         */
-
-        /* Since not using PG_TRY, must reset error stack by hand */
-        error_context_stack = NULL;
-
-        /* Prevent interrupts while cleaning up */
-        HOLD_INTERRUPTS();
-
-        /*
-         * Forget any pending QueryCancel request, since we're returning to
-         * the idle loop anyway, and cancel any active timeout requests.  (In
-         * future we might want to allow some timeout requests to survive, but
-         * at minimum it'd be necessary to do reschedule_timeouts(), in case
-         * we got here because of a query cancel interrupting the SIGALRM
-         * interrupt handler.)	Note in particular that we must clear the
-         * statement and lock timeout indicators, to prevent any future plain
-         * query cancels from being misreported as timeouts in case we're
-         * forgetting a timeout cancel.
-         */
-        disable_all_timeouts(false);	/* do first to avoid race condition */
-        QueryCancelPending = false;
-        idle_in_transaction_timeout_enabled = false;
-        idle_session_timeout_enabled = false;
-
-        /* Not reading from the client anymore. */
-        DoingCommandRead = false;
-
-        /* Make sure libpq is in a good state */
-        pq_comm_reset();
-
-        /* Report the error to the client and/or server log */
-        EmitErrorReport();
-
-        /*
-         * If Valgrind noticed something during the erroneous query, print the
-         * query string, assuming we have one.
-         */
-        valgrind_report_error_query(debug_query_string);
-
-        /*
-         * Make sure debug_query_string gets reset before we possibly clobber
-         * the storage it points at.
-         */
-        debug_query_string = NULL;
-
-        /*
-         * Abort the current transaction in order to recover.
-         */
-        AbortCurrentTransaction();
-
-        if (am_walsender)
-            WalSndErrorCleanup();
-
-        PortalErrorCleanup();
-
-        /*
-         * We can't release replication slots inside AbortTransaction() as we
-         * need to be able to start and abort transactions while having a slot
-         * acquired. But we never need to hold them across top level errors,
-         * so releasing here is fine. There also is a before_shmem_exit()
-         * callback ensuring correct cleanup on FATAL errors.
-         */
-        if (MyReplicationSlot != NULL)
-            ReplicationSlotRelease();
-
-        /* We also want to cleanup temporary slots on error. */
-        ReplicationSlotCleanup();
-
-        jit_reset_after_error();
-
-        /*
-         * Now return to normal top-level context and clear ErrorContext for
-         * next time.
-         */
-        MemoryContextSwitchTo(TopMemoryContext);
-        FlushErrorState();
-
-        /*
-         * If we were handling an extended-query-protocol message, initiate
-         * skip till next Sync.  This also causes us not to issue
-         * ReadyForQuery (until we get Sync).
-         */
-        if (doing_extended_query_message)
-            ignore_till_sync = true;
-
-        /* We don't have a transaction command open anymore */
-        xact_started = false;
-
-        /*
-         * If an error occurred while we were reading a message from the
-         * client, we have potentially lost track of where the previous
-         * message ends and the next one begins.  Even though we have
-         * otherwise recovered from the error, we cannot safely read any more
-         * messages from the client, so there isn't much we can do with the
-         * connection anymore.
-         */
-        if (pq_is_reading_msg())
-            ereport(FATAL,
-	                (errcode(ERRCODE_PROTOCOL_VIOLATION),
-	                 errmsg("terminating connection because protocol synchronization was lost")));
-
-        /* Now we can allow interrupts again */
-        RESUME_INTERRUPTS();
-    }
-
-    /* We can now handle ereport(ERROR) */
-    PG_exception_stack = &local_sigjmp_buf;
-
+#   define INITDB_SINGLE
+#   include "pgl_sjlj.c"
+#   undef INITDB_SINGLE
 #endif // sjlj
 
     if (!ignore_till_sync)
         send_ready_for_query = true;	/* initially, or after error */
-
+/*
     if (!inloop) {
         inloop = true;
         PDEBUG("# 335: REPL(initdb-single):Begin " __FILE__ );
@@ -338,39 +212,23 @@ PDEBUG("# 164:" __FILE__);
         // signal error
         optind = -1;
     }
-
-    fclose(single_mode_feed);
-/*
-    if (strlen(getenv("REPL")) && getenv("REPL")[0]=='Y') {
-        PDEBUG("# 346: REPL(initdb-single):End " __FILE__ );
-
-        // now use stdin as source
-        repl = true;
-        single_mode_feed = NULL;
-
-        force_echo = true;
-
-        if (is_embed) {
-#if PGDEBUG
-            fprintf(stdout,"# 551: now in webloop(RAF)\npg> %c\n", 4);
-#endif
-            emscripten_set_main_loop( (em_callback_func)interactive_one, 0, 0);
-        } else {
-
-            PDEBUG("# 361: REPL(single after initdb):Begin(NORETURN)");
-            while (repl) { interactive_file(); }
-            PDEBUG("# 363: REPL:End Raising a 'RuntimeError Exception' to halt program NOW");
-            {
-                void (*npe)() = NULL;
-                npe();
-            }
-        }
-
-        // unreachable.
-    }
 */
 
-    PDEBUG("# 374: no line-repl requested, exiting and keeping runtime alive");
+  interactive_file();
+  fclose(single_mode_feed);
+  single_mode_feed = NULL;
+
+/*
+    while (repl) { interactive_file(); }
+    PDEBUG("# 232: REPL:End Raising a 'RuntimeError Exception' to halt program NOW");
+    {
+        void (*npe)() = NULL;
+        npe();
+    }
+    // unreachable.
+*/
+
+    PDEBUG("# 240: no line-repl requested, exiting and keeping runtime alive");
 }
 
 
@@ -380,17 +238,17 @@ void
 AsyncPostgresSingleUserMain(int argc, char *argv[], const char *username, int async_restart)
 {
 	const char *dbname = NULL;
-PDEBUG("# 80");
+PDEBUG("# 254:"__FILE__);
 
 	/* Initialize startup process environment. */
 	InitStandaloneProcess(argv[0]);
-
+PDEBUG("# 254:"__FILE__);
 	/* Set default values for command-line options.	 */
 	InitializeGUCOptions();
-
+PDEBUG("# 257:"__FILE__);
 	/* Parse command-line options. */
 	process_postgres_switches(argc, argv, PGC_POSTMASTER, &dbname);
-
+PDEBUG("# 260:"__FILE__);
 	/* Must have gotten a database name, or have a default (the username) */
 	if (dbname == NULL)
 	{
@@ -403,12 +261,12 @@ PDEBUG("# 80");
 	}
 
 if (async_restart) goto async_db_change;
-
+PDEBUG("# 273:SelectConfigFiles "__FILE__);
 	/* Acquire configuration parameters */
 	if (!SelectConfigFiles(userDoption, progname)) {
         proc_exit(1);
     }
-
+PDEBUG("# 278:SelectConfigFiles "__FILE__);
 	checkDataDir();
 	ChangeToDataDir();
 

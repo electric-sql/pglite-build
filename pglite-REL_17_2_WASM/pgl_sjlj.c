@@ -41,7 +41,7 @@
 	                 errmsg("terminating connection because protocol synchronization was lost")));
 
         RESUME_INTERRUPTS();
-
+#if !defined(INITDB_SINGLE)
         /*
          * If we were handling an extended-query-protocol message, skip till next Sync.
          * This also causes us not to issue ReadyForQuery (until we get Sync).
@@ -54,6 +54,7 @@
             pg_prompt();
 
         goto wire_flush;
+#endif
     }
 
 	PG_exception_stack = &local_sigjmp_buf;
