@@ -62,7 +62,7 @@ END
                 mv -vf ${WORKSPACE}/postgresql-${PG_VERSION}/pglite.* ${CONTAINER_PATH}/tmp/pglite/sdk/*.tar.gz packages/pglite/release/
             popd
         else
-            git clone https://github.com/electric-sql/pglite
+            git clone --no-tags --depth 1 --single-branch pmp-p/pglite-build17 --branch https://github.com/electric-sql/pglite
         fi
 
 
@@ -96,7 +96,7 @@ END
                 pushd packages/pglite
                     if $CI
                     then
-                        pnpm vitest tests/basic.test.js || exit 91
+                        pnpm vitest tests/basic.test.js || exit 99
                     fi
                 popd
             fi
@@ -120,11 +120,9 @@ END
 
         fi
 
-
-
     else
         echo failed to build libpgcore static
-        exit 19
+        exit 125
     fi
 popd
 
