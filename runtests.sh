@@ -1,8 +1,11 @@
 #!/bin/bash
 reset
+if [ -d  /srv/www/html/pglite-web ]
+then
+    . /opt/python-wasm-sdk/wasm32-bi-emscripten-shell.sh
+fi
 
-. /opt/python-wasm-sdk/wasm32-bi-emscripten-shell.sh
-pushd pglite/packages/pglite
+pushd postgres/pglite/packages/pglite
 
     skipt=false
 
