@@ -62,7 +62,7 @@ END
                 mv -vf ${WORKSPACE}/postgresql-${PG_VERSION}/pglite.* ${CONTAINER_PATH}/tmp/pglite/sdk/*.tar.gz packages/pglite/release/
             popd
         else
-            git clone --no-tags --depth 1 --single-branch pmp-p/pglite-build17 --branch https://github.com/electric-sql/pglite
+            git clone --no-tags --depth 1 --single-branch --branch pmp-p/pglite-build17 https://github.com/electric-sql/pglite pglite
         fi
 
 
