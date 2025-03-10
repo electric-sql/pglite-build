@@ -56,7 +56,7 @@ jobs:
 #          branch: gh-pages
 #          folder: /tmp/fs/tmp/web
 
-      - name: run pglite tests with vitest
-        run: |
-          bash ./runtests.sh
+#      - name: run pglite tests with vitest
+#        run: |
+#          bash ./runtests.sh
 

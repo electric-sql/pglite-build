@@ -116,8 +116,8 @@ END
             cp ${WORKSPACE}/pglite/packages/pglite/examples/{styles.css,utils.js} /srv/www/html/pglite-web/examples/
             cp -f ${WORKSPACE}/pglite/packages/pglite/release/* /srv/www/html/pglite-web/
             du -hs /srv/www/html/pglite-web/pglite.*
-
-
+        else
+            ./runtests.sh
         fi
 
     else
