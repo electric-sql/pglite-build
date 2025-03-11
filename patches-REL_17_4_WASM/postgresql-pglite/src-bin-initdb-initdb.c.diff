@@ -1,5 +1,5 @@
---- REL_17_2/src/bin/initdb/initdb.c
-+++ pglite-REL_17_2/src/bin/initdb/initdb.c
+--- REL_17_4/src/bin/initdb/initdb.c
++++ pglite-REL_17_4/src/bin/initdb/initdb.c
 @@ -171,7 +171,11 @@
  
  

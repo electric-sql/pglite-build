@@ -1,30 +1,31 @@
 #!/bin/bash
 export WORKSPACE=$(pwd)
-export PG_VERSION=${PG_VERSION:-REL_17_4_WASM}
+export PG_VERSION=${PG_VERSION:-17.4}
+export PG_BRANCH=${PG_BRANCH:-REL_17_4_WASM}
 export CONTAINER_PATH=${CONTAINER_PATH:-/tmp/fs}
 export DEBUG=${DEBUG:-false}
 export USE_ICU=${USE_ICU:-false}
 
 #
-#[ -f postgresql-${PG_VERSION}/configure ] \
-# || git clone --no-tags --depth 1 --single-branch --branch ${PG_VERSION} https://github.com/pygame-web/postgres postgresql-${PG_VERSION}
+#[ -f postgresql-${PG_BRANCH}/configure ] \
+# || git clone --no-tags --depth 1 --single-branch --branch ${PG_BRANCH} https://github.com/pygame-web/postgres postgresql-${PG_BRANCH}
 #
 
-[ -f postgresql-${PG_VERSION}/configure ] \
- || git clone --no-tags --depth 1 --single-branch --branch ${PG_VERSION} https://github.com/electric-sql/postgres-pglite postgresql-${PG_VERSION}
+[ -f postgresql-${PG_BRANCH}/configure ] \
+ || git clone --no-tags --depth 1 --single-branch --branch ${PG_BRANCH} https://github.com/electric-sql/postgres-pglite postgresql-${PG_BRANCH}
 
 chmod +x portable/*.sh wasm-build/*.sh
-cp -R wasm-build* extra patches-${PG_VERSION} postgresql-${PG_VERSION}/
+cp -R wasm-build* extra patches-${PG_BRANCH} postgresql-${PG_BRANCH}/
 
-if [ -d postgresql-${PG_VERSION}/pglite-wasm ]
+if [ -d postgresql-${PG_BRANCH}/pglite-wasm ]
 then
     echo "using local pglite files"
 else
-    mkdir -p postgresql-${PG_VERSION}/pglite-wasm
-    cp -Rv pglite-${PG_VERSION}/* postgresql-${PG_VERSION}/pglite-wasm/
+    mkdir -p postgresql-${PG_BRANCH}/pglite-wasm
+    cp -Rv pglite-${PG_BRANCH}/* postgresql-${PG_BRANCH}/pglite-wasm/
 fi
 
-pushd postgresql-${PG_VERSION}
+pushd postgresql-${PG_BRANCH}
 
     cat > $CONTAINER_PATH/portable.opts <<END
 export DEBUG=${DEBUG}
@@ -59,7 +60,7 @@ END
                 rmdir packages/pglite/dist/*
 
                 #update
-                mv -vf ${WORKSPACE}/postgresql-${PG_VERSION}/pglite.* ${CONTAINER_PATH}/tmp/pglite/sdk/*.tar.gz packages/pglite/release/
+                mv -vf ${WORKSPACE}/postgresql-${PG_BRANCH}/pglite.* ${CONTAINER_PATH}/tmp/pglite/sdk/*.tar.gz packages/pglite/release/
             popd
         else
             git clone --no-tags --depth 1 --single-branch --branch pmp-p/pglite-build17 https://github.com/electric-sql/pglite pglite
@@ -108,7 +109,7 @@ END
             git restore src/test/Makefile src/test/isolation/Makefile
 
             echo "# backup pglite workfiles"
-            [ -d pglite-wasm ] && cp -R pglite-wasm/* ${WORKSPACE}/pglite-${PG_VERSION}/
+            [ -d pglite-wasm ] && cp -R pglite-wasm/* ${WORKSPACE}/pglite-${PG_BRANCH}/
 
             echo "# use released files for test"
             mkdir -p /srv/www/html/pglite-web/examples

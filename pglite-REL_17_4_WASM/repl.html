@@ -281,7 +281,13 @@ globalThis.pgl_conf = pgl_conf
                     break
 
                 case 2:
-                    data = "CREATE EXTENSION IF NOT EXISTS plpgsql;CREATE EXTENSION IF NOT EXISTS vector;"
+                    data = `
+CREATE EXTENSION IF NOT EXISTS plpgsql;
+CREATE OR REPLACE FUNCTION test_func() RETURNS TEXT AS $$ BEGIN RETURN 'test'; END; $$ LANGUAGE plpgsql;
+CREATE EXTENSION IF NOT EXISTS vector;
+LISTEN template1;
+SELECT test_func();
+`
                     break
 
                 case 3:
@@ -291,17 +297,28 @@ CREATE TABLE IF NOT EXISTS test (
       number INT
     );
     INSERT INTO test (number) VALUES (42);
+`
+                    break
 
+                case 4:
+                      data = `
 CREATE TABLE IF NOT EXISTS test2 (
       id SERIAL PRIMARY KEY,
       number INT
     );
     INSERT INTO test2 (number) VALUES (42);
-`;
+`
                     break
 
-                case 4:
-                    data = "CREATE USER test_user WITH PASSWORD 'md5abdbecd56d5fbd2cdaee3d0fa9e4f434';ALTER TABLE test2 OWNER TO test_user;"
+                case 5:
+                    data = `
+CREATE USER test_user WITH PASSWORD 'md5abdbecd56d5fbd2cdaee3d0fa9e4f434';
+ALTER TABLE test2 OWNER TO test_user;
+`
+                    break
+
+                case 6:
+                    data = "NOTIFY template1, 'hello';"
                     break
 
 
@@ -309,24 +326,10 @@ CREATE TABLE IF NOT EXISTS test2 (
 /*
                 case 3:
                     data = "SELECT now(), current_database(), session_user, current_user;CREATE EXTENSION IF NOT EXISTS postgis;"
-                    break
-
-
-                case 3:
                     data = "SELECT now(), PostGIS_Version();"
-                    break
-
-                case 3:
+                    data = "SELECT * FROM pg_extension;"
                     data = "SELECT dictname FROM pg_catalog.pg_ts_dict;"
-                    break
-
-                case 5:
                     data = "CHECKPOINT;SELECT pg_terminate_backend(42);";
-                    break
-
-
-
-
                 case 3:
                     data = "CREATE DATABASE test_user WITH OWNER = test_user;"
                     break
@@ -348,22 +351,7 @@ CREATE TABLE IF NOT EXISTS test2 (
                     break
 */
 /*
-                case 2:
-                    //data = "CREATE EXTENSION vector;"
-                    data = "LISTEN template1;"
-                    break
-
-                case 3:
-                    // data = "SELECT * FROM pg_extension;"
-                    data = "NOTIFY template1, 'hello';"
-                    break
-
                 case 4:
-                    data = "CREATE OR REPLACE FUNCTION test_func() RETURNS TEXT AS $$ BEGIN RETURN 'test'; END; $$ LANGUAGE plpgsql;"
-                    break
-
-                case 5:
-                    data = "SELECT test_func();"
                     break
 
                 case 6:
@@ -409,10 +397,7 @@ CREATE TABLE IF NOT EXISTS test2 (
             // await Module.load_package("postgis", "postgis-3.tar.gz")
             // await Module.load_package("arrays", "arrays.tar.gz")
             // await Module.load_package("pg_stat_statements", "pg_stat_statements.tar.gz")
-
-
             // vm._setenv(vm.stringToUTF8OnStack("REPL"),vm.stringToUTF8OnStack("Y"),1)
-            // console.log("XXXXXX CMA ADDR REPLACEMENT ( for -O0 ) XXXXXXXXXXXX", vm._pg_getport() );
 
             console.warn("calling initdb")
 
@@ -461,16 +446,7 @@ SET ROLE test_user;
 */
                 }
 
-/*
                 vm.PGDATA = PGDATA
-                await pgl_conf(vm,{"shared_preload_libraries" : ["pg_stat_statements"]}, {})
-
-compute_query_id = on
-pg_stat_statements.max = 10000
-pg_stat_statements.track = all
-*/
-
-                    vm.PGDATA = PGDATA
                 if (editconf) {
                     await pgl_conf(vm, {
                         "shared_preload_libraries" : ["pg_stat_statements"],
@@ -573,7 +549,7 @@ pg_stat_statements.track = all
             load_pg_extension: load_pg_extension,
 
             load_package: load_package,
-// "PGDATABASE=test_user", "PGUSER=test_user"
+// "PGDATABASE=test_user",
             arguments : ["--single", "postgres", "--", "PGDATA=/tmp/pglite/base", "PREFIX=/tmp/pglite", "PGUSER=test_user", "REPL=N"],
 
             config : {
@@ -881,6 +857,7 @@ function os_listdir(path) {
 }
 
 
+
 async function async_wasi_init(root_fs, pre, post) {
     if (!root_fs) {
         await configure({
@@ -947,11 +924,9 @@ writeFileSync
     globalThis.os = os
     return os
 }
-
 globalThis.async_wasi_init = async_wasi_init
 
 
-/* */
     console.log("Using wasi : easywasi")
     console.log("---------------------")
 
@@ -999,98 +974,6 @@ globalThis.async_wasi_init = async_wasi_init
         console.log(`${bin} ${wasi.args}  exit code = ${ec}`)
         return ec
     }
-
-/* */
-
-/*
-    console.log("Using wasi : browser_wasi_shim")
-    console.log("------------------------------")
-
-    import { WASI, Fd, File, OpenFile, Directory, PreopenDirectory, strace, ConsoleStdout, UnixSocket_W } from "browser_wasi_shim"
-
-    async function os_exec(bin, ...stack) {
-        var kw = {PWD: '/'}
-
-        if (stack.length) {
-            if (isMapping(stack[stack.length-1])) {
-                update(kw, stack.pop())
-            }
-        }
-        var argv= [bin]
-            argv.push(...stack)
-
-        function Module_bc_postMessage(data) {
-            // Module.bc.postMessage(msg)
-            console.error("postMessage:", data)
-        }
-
-
-        function F(name, data) {
-            const f = new File( os.codec.encode(data) )
-            return [name, f]
-        }
-
-        let fds = [
-            new OpenFile(new File([])), // stdin
-            ConsoleStdout.lineBuffered(msg => vm.vt.xterm.write(msg+"\r\n")), // stdout
-            ConsoleStdout.lineBuffered(msg => vm.vt.xterm.write('\x1B[1;3;31m'+ msg+"\x1B[0m\r\n") ),  // stderr
-            new UnixSocket_W(msg => Module_bc_postMessage(msg)),
-            new PreopenDirectory(".", [ F("pg_dump","#!wasi") ]),
-            new PreopenDirectory("/", [
-                new PreopenDirectory("bin", [F("pg_dump","#!wasi")]),
-                new PreopenDirectory("tmp", [
-                    new PreopenDirectory("pglite", [
-                        new PreopenDirectory("base", []),
-                    ]),
-                ]),
-            ]),
-        ]
-
-        const exe = `bin/${bin}.wasm`
-        console.log("Loading wasi bin : ", bin, "from", exe)
-
-        vm.vt.xterm.writeln(`\x1B[93mDownloading : ${argv[0]}\x1B[0m`);
-
-        os.PATH[bin] = await WebAssembly.compileStreaming(fetch(exe));
-
-        vm.vt.xterm.writeln(`\x1B[93mInstantiating : ${argv[0]}\x1B[0m`);
-
-        const wasi = new WASI(argv, [], fds, { debug: true });
-
-        const notrace = ["fd_write"]; // ["args_sizes_get", "args_get", "environ_sizes_get", "clock_time_get", "fd_fdstat_set_flags", "fd_prestat_get", "fd_prestat_dir_name", "fd_fdstat_get", "fd_write"]
-
-        // await os.FS.writeFile('/pg_dump', '\0', {mode:os.umask})
-
-        vm.vt.xterm.writeln(`\x1B[93mExecuting : ${argv[0]}\x1B[0m`);
-
-        const instance = await WebAssembly.instantiate(os.PATH[bin], {
-            "env": { memory: new WebAssembly.Memory({ initial: 10, maximum: 100, shared: false }) },
-            "wasi": { },
-            "wasi_snapshot_preview1": strace(wasi.wasiImport, notrace),
-        })
-        var app= os.PATH[bin]
-            app.instance = instance
-            app.wasi = wasi
-            app.cmdline = exe+" "+ stack.join(' ')
-            app.codec = kw["encoding"] || os.codec
-        console.log(app)
-
-
-        console.log("xports:", instance.exports)
-
-        const ec = app.wasi.start(app.instance)
-        console.log(`${app.wasi.args.join(' ')} exit code = ${ec}`)
-
-        //app.instance.exports._setup();
-
-        vm.vt.xterm.writeln("\x1B[92mDone\x1B[0m");
-
-        return ec
-    }
-
-// }
-*/
-
 
 </script>
 

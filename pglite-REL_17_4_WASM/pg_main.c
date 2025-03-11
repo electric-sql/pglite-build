@@ -363,7 +363,26 @@ void pgl_backend() {
     }
 
     if (async_restart) {
-        PDEBUG("# 354: backend was started by initdb");
+// old 487
+    {
+#if PGDEBUG
+        fprintf(stdout, "\n\n\n# 483: restarting in single mode after initdb with user '%s' instead of %s\n", getenv("PGUSER"), PGUSER);
+#endif
+        char *single_argv[] = {
+            WASM_PREFIX "/bin/postgres",
+            "--single",
+            "-d", "1", "-B", "16", "-S", "512", "-f", "siobtnmh",
+            "-D", PGDATA,
+            "-F", "-O", "-j",
+            WASM_PGOPTS,
+            "template1",
+            NULL
+        };
+        int single_argc = sizeof(single_argv) / sizeof(char*) - 1;
+        optind = 1;
+        RePostgresSingleUserMain(single_argc, single_argv, WASM_USERNAME);
+PDEBUG("# 384: initdb faking shutdown to complete WAL/OID states in single mode");
+    }
         goto backend_started;
 
     }
@@ -383,7 +402,7 @@ void pgl_backend() {
     int single_argc = sizeof(single_argv) / sizeof(char*) - 1;
     optind = 1;
 #if PGDEBUG
-        fprintf(stdout, "\n\n\n# 483: resuming db with user '%s' instead of %s\n", PGUSER, getenv("PGUSER"));
+        fprintf(stdout, "\n\n\n# 405: resuming db with user '%s' instead of %s\n", PGUSER, getenv("PGUSER"));
 #endif
     setenv("PGUSER", PGUSER, 1);
 
@@ -411,7 +430,7 @@ __attribute__((export_name("pgl_initdb")))
 #endif
 int
 pgl_initdb() {
-    PDEBUG("# 352: pg_initdb()");
+    PDEBUG("# 433: pg_initdb()");
     optind = 1;
     pgl_idb_status |= IDB_FAILED;
 
@@ -424,7 +443,7 @@ pgl_initdb() {
             /* assume auth success for now */
             pgl_idb_status |= IDB_HASUSER;
 #if PGDEBUG
-            fprintf(stdout, "# 414: pg_initdb: db exists at : %s TODO: test for db name : %s \n", PGDATA, getenv("PGDATABASE"));
+            fprintf(stdout, "# 446: pg_initdb: db exists at : %s TODO: test for db name : %s \n", PGDATA, getenv("PGDATABASE"));
 #endif // PGDEBUG
 
             async_restart = 0;
@@ -432,24 +451,24 @@ pgl_initdb() {
         }
     	chdir("/");
 #if PGDEBUG
-        fprintf(stderr, "# 424: pg_initdb no db found at : %s\n", PGDATA );
+        fprintf(stderr, "# 454: pg_initdb no db found at : %s\n", PGDATA );
 #endif // PGDEBUG
     } else {
 #if PGDEBUG
-        fprintf(stderr, "# 428: pg_initdb db folder not found at : %s\n", PGDATA );
+        fprintf(stderr, "# 458: pg_initdb db folder not found at : %s\n", PGDATA );
 #endif // PGDEBUG
     }
 
     int initdb_rc = pgl_initdb_main();
 
 #if PGDEBUG
-    fprintf(stderr, "\n\n# 435: " __FILE__ "pgl_initdb_main = %d\n", initdb_rc );
+    fprintf(stderr, "\n\n# 465: " __FILE__ "pgl_initdb_main = %d\n", initdb_rc );
 #endif // PGDEBUG
-    PDEBUG("# 437:" __FILE__);
+    PDEBUG("# 467:" __FILE__);
     /* save stdin and use previous initdb output to feed boot mode */
     int saved_stdin = dup(STDIN_FILENO);
     {
-        PDEBUG("# 441: restarting in boot mode for initdb");
+        PDEBUG("# 471: restarting in boot mode for initdb");
         freopen(IDB_PIPE_BOOT, "r", stdin);
 
         char *boot_argv[] = {
@@ -471,7 +490,7 @@ pgl_initdb() {
         remove(IDB_PIPE_BOOT);
         stdin = fdopen(saved_stdin, "r");
 
-        PDEBUG("# 467: initdb faking shutdown to complete WAL/OID states");
+        PDEBUG("# 493: initdb faking shutdown to complete WAL/OID states");
         pg_proc_exit(66);
     }
 
@@ -481,10 +500,10 @@ pgl_initdb() {
     //IsPostmasterEnvironment = true;
     if (TransamVariables->nextOid < ((Oid) FirstNormalObjectId)) {
 #if PGDEBUG
-        puts("# 477: warning oid base too low, will need to set OID range after initdb(bootstrap/single)");
+        puts("# 503: warning oid base too low, will need to set OID range after initdb(bootstrap/single)");
 #endif
     }
-
+/*
     {
 #if PGDEBUG
         fprintf(stdout, "\n\n\n# 483: restarting in single mode for initdb with user '%s' instead of %s\n", getenv("PGUSER"), PGUSER);
@@ -505,7 +524,8 @@ pgl_initdb() {
 PDEBUG("# 498: initdb faking shutdown to complete WAL/OID states in single mode");
         async_restart = 1;
     }
-
+*/
+        async_restart = 1;
 initdb_done:;
     pgl_idb_status |= IDB_CALLED;
 

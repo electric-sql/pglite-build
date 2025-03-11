@@ -1,5 +1,5 @@
---- REL_17_2/src/Makefile.shlib
-+++ pglite-REL_17_2/src/Makefile.shlib
+--- REL_17_4/src/Makefile.shlib
++++ pglite-REL_17_4/src/Makefile.shlib
 @@ -224,6 +224,33 @@
    override CXXFLAGS += $(CXXFLAGS_SL_MODULE)
  endif

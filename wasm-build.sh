@@ -1,6 +1,6 @@
 #!/bin/bash
 
-export PG_VERSION=${PG_VERSION:-REL_16_6_WASM}
+export PG_VERSION=${PG_VERSION:-17.4}
 
 #set -x;
 #set -e;
@@ -20,6 +20,7 @@ export WASI=${WASI:-false}
 export WORKSPACE=${GITHUB_WORKSPACE:-$(pwd)}
 export PGROOT=${PGROOT:-/tmp/pglite}
 export WEBROOT=${WEBROOT:-/tmp/web}
+export DIST=${DIST:-/tmp/sdk}
 export DEBUG=${DEBUG:-true}
 
 export USE_ICU=${USE_ICU:-false}
@@ -55,12 +56,12 @@ fi
 
 
 # default to a user writeable path.
-if mkdir -p ${PGROOT}/sdk
+if mkdir -p ${DIST} ${PGROOT}
 then
     echo "checking for valid prefix ${PGROOT}"
 else
-    sudo mkdir -p ${PGROOT}/sdk ${PGROOT}/bin
-    sudo chown $(whoami) -R ${PGROOT}
+    sudo mkdir -p ${PGROOT} ${PGROOT}/bin ${DIST}
+    sudo chown $(whoami) -R ${PGROOT} ${DIST}
 fi
 
 # TODO: also handle PGPASSFILE hostname:port:database:username:password

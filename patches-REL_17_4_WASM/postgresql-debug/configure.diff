@@ -1,5 +1,5 @@
---- REL_17_2/configure
-+++ pglite-REL_17_2/configure
+--- REL_17_4/configure
++++ pglite-REL_17_4/configure
 @@ -4328,7 +4328,7 @@
    ac_save_c_werror_flag=$ac_c_werror_flag
     ac_c_werror_flag=yes
@@ -113,7 +113,7 @@
  fi
  
  # C[XX]FLAGS we determined above will be added back at the end
-@@ -7551,11 +7551,11 @@
+@@ -7656,11 +7656,11 @@
  
  # supply -g if --enable-debug
  if test "$enable_debug" = yes && test "$ac_cv_prog_cc_g" = yes; then
@@ -127,7 +127,7 @@
  fi
  
  # enable code coverage if --enable-coverage
-@@ -13208,7 +13208,7 @@
+@@ -13313,7 +13313,7 @@
  #ifdef __cplusplus
  extern "C"
  #endif
@@ -136,7 +136,7 @@
  int
  main ()
  {
-@@ -13231,7 +13231,7 @@
+@@ -13336,7 +13336,7 @@
  if test "x$ac_cv_lib_uuid_uuid_export" = xyes; then :
    UUID_LIBS="-luuid"
  else

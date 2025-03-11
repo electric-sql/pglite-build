@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-export PG_VERSION=${PG_VERSION:-REL_17_4_WASM}
+export PG_VERSION=${PG_BRANCH:-17.4}
+export PG_BRANCH=${PG_BRANCH:-REL_17_4_WASM}
 export PORTABLE=$(realpath $(dirname $0))
 export ROOT=$(realpath $(pwd))
 export SDKROOT=${SDKROOT:-/tmp/sdk}
@@ -11,6 +12,7 @@ echo "
 PORTABLE=$PORTABLE
 ROOT=$ROOT
 PG_VERSION=$PG_VERSION
+PG_BRANCH=$PG_BRANCH
 SDKROOT=$SDKROOT
 DEBUG=$DEBUG
 USE_ICU=$USE_ICU
@@ -401,17 +403,17 @@ __start() {
 }
 
 
-if git checkout ${PG_VERSION}
+if git checkout ${PG_BRANCH}
 then
-    if [ -f postgresql-${PG_VERSION}.patched ]
+    if [ -f postgresql-${PG_BRANCH}.patched ]
     then
         echo tree already patched for emscripten/pglite
     else
         echo "
 
-    Patching branch ${PG_VERSION} with :
+    Patching branch ${PG_BRANCH} with :
 
-$(find patches-${PG_VERSION}/postgresql-*)
+$(find patches-${PG_BRANCH}/postgresql-*)
 
 
 
@@ -428,9 +430,9 @@ $(find patches-${PG_VERSION}/postgresql-*)
             postgresql-wasi \
             postgresql-pglite
         do
-            if [ -d patches-${PG_VERSION}/$patchdir ]
+            if [ -d patches-${PG_BRANCH}/$patchdir ]
             then
-                for one in patches-${PG_VERSION}/$patchdir/*.diff
+                for one in patches-${PG_BRANCH}/$patchdir/*.diff
                 do
                     if cat $one | patch -p1
                     then
@@ -445,7 +447,7 @@ Fatal: failed to apply patch : $one
                 done
             fi
         done
-        touch postgresql-${PG_VERSION}.patched
+        touch postgresql-${PG_BRANCH}.patched
     fi
 
     if [ -d $CONTAINER_PATH/${SDKROOT} ]
@@ -473,5 +475,5 @@ Fatal: failed to apply patch : $one
         alpineproot "apk add bash;/bin/bash --init-file /initrc"
     fi
 else
-    echo Error need PG_VERSION=$PG_VERSION set to a valid branch
+    echo Error need PG_BRANCH=$PG_BRANCH set to a valid branch
 fi
