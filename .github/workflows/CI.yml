@@ -27,12 +27,12 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 1
+          submodules: true
 
       - name: Install python-wasi-sdk for wasi+prebuilts
         working-directory: /
         run: |
           sudo apt-get install -y lz4 wget pv bash
-          # sudo rm $(which node) $(which npm)
           echo https://github.com/pygame-web/python-wasi-sdk/releases/download/$WASI_SDK_VERSION/$WASI_SDK_ARCHIVE
           curl -sL --retry 5 https://github.com/pygame-web/python-wasi-sdk/releases/download/$WASI_SDK_VERSION/$WASI_SDK_ARCHIVE | tar xvP --use-compress-program=lz4 | pv -p -l -s 23000 >/dev/null
 
@@ -50,13 +50,13 @@ jobs:
           tag: ${{ github.ref }}
 
 
-#      - name : "Upload to GitHub pages"
-#        uses: JamesIves/github-pages-deploy-action@v4.4.1
-#        with:
-#          branch: gh-pages
-#          folder: /tmp/fs/tmp/web
+      - name : "Upload to GitHub pages"
+        uses: JamesIves/github-pages-deploy-action@v4.4.1
+        with:
+          branch: gh-pages
+          folder: /tmp/web
 
-#      - name: run pglite tests with vitest
-#        run: |
-#          bash ./runtests.sh
+      - name: run pglite tests with vitest
+        run: |
+          bash ./runtests.sh
 

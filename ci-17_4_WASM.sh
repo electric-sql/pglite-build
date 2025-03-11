@@ -7,8 +7,19 @@ export DEBUG=${DEBUG:-false}
 export USE_ICU=${USE_ICU:-false}
 
 
+
 PG_DIST_EXT="${WORKSPACE}/postgresql/dist/extensions-emsdk"
 PG_DIST_PGLITE="${WORKSPACE}/postgresql/dist/pglite-sandbox"
+
+# for local testing
+if [ -d export PG_DIST_WEB="/srv/www/html/pglite-web" ]
+then
+    export PG_DIST_WEB="/srv/www/html/pglite-web"
+    export LOCAL=true
+else
+    export PG_DIST_WEB="${WORKSPACE}/postgresql/dist/web"
+    export LOCAL=false
+fi
 
 
 #
@@ -111,22 +122,29 @@ END
         popd
 
 
-        if [ -d /srv/www/html/pglite-web ]
+        mkdir -p ${PG_DIST_WEB}
+        if [ -d ${PG_DIST_WEB} ]
         then
             git restore src/test/Makefile src/test/isolation/Makefile
 
-            echo "# backup pglite workfiles"
-            [ -d pglite-wasm ] && cp -R pglite-wasm/* ${WORKSPACE}/pglite-${PG_BRANCH}/
+            echo "# use released files for web test"
+            mkdir -p ${PG_DIST_WEB}/examples
+            cp -r ${WORKSPACE}/pglite/packages/pglite/dist ${PG_DIST_WEB}/
+            cp ${WORKSPACE}/pglite/packages/pglite/examples/{styles.css,utils.js} ${PG_DIST_WEB}/examples/
+            cp -f ${WORKSPACE}/pglite/packages/pglite/release/* ${PG_DIST_WEB}/
+            du -hs ${PG_DIST_WEB}/pglite.*
 
-            echo "# use released files for test"
-            mkdir -p /srv/www/html/pglite-web/examples
-            cp -r ${WORKSPACE}/pglite/packages/pglite/dist /srv/www/html/pglite-web/
-            cp ${WORKSPACE}/pglite/packages/pglite/examples/{styles.css,utils.js} /srv/www/html/pglite-web/examples/
-            cp -f ${WORKSPACE}/pglite/packages/pglite/release/* /srv/www/html/pglite-web/
-            du -hs /srv/www/html/pglite-web/pglite.*
-        else
-            ./runtests.sh
+            if $LOCAL
+            then
+                echo "# backup pglite workfiles"
+                [ -d pglite-wasm ] && cp -R pglite-wasm/* ${WORKSPACE}/pglite-${PG_BRANCH}/
+            else
+                mv ${PG_DIST_WEB} /tmp/web
+            fi
         fi
+
+        ./runtests.sh
+
 
     else
         echo failed to build libpgcore static
