@@ -20,7 +20,13 @@ export WASI=${WASI:-false}
 export WORKSPACE=${GITHUB_WORKSPACE:-$(pwd)}
 export PGROOT=${PGROOT:-/tmp/pglite}
 export WEBROOT=${WEBROOT:-/tmp/web}
-export DIST=${DIST:-/tmp/sdk}
+
+export PG_DIST=${DIST:-/tmp/sdk/dist}
+export PG_DIST_EXT="${PG_DIST}/extensions-emsdk"
+
+
+export PGL_DIST_WEB="${PG_DIST}/pglite-sandbox"
+
 export DEBUG=${DEBUG:-true}
 
 export USE_ICU=${USE_ICU:-false}
@@ -55,13 +61,13 @@ else
 fi
 
 
-# default to a user writeable path.
-if mkdir -p ${DIST} ${PGROOT}
+# default to user writeable paths in /tmp/ .
+if mkdir -p ${PGROOT} ${PG_DIST} ${PG_DIST_EXT} ${PGL_DIST_WEB}
 then
-    echo "checking for valid prefix ${PGROOT}"
+    echo "checking for valid prefix ${PGROOT} ${PG_DIST}"
 else
-    sudo mkdir -p ${PGROOT} ${PGROOT}/bin ${DIST}
-    sudo chown $(whoami) -R ${PGROOT} ${DIST}
+    sudo mkdir -p ${PGROOT} ${PGROOT}/bin ${PG_DIST} ${PG_DIST_EXT} ${PGL_DIST_WEB}
+    sudo chown $(whoami) -R ${PGROOT} ${PG_DIST}
 fi
 
 # TODO: also handle PGPASSFILE hostname:port:database:username:password
@@ -169,14 +175,6 @@ fi
 export CC_PGLITE="-DPYDK=1 -DPG_PREFIX=${PGROOT} -I${PGROOT}/include ${CC_PGLITE}"
 
 
-export PGPRELOAD="\
---preload-file ${PGROOT}/share/postgresql@${PGROOT}/share/postgresql \
---preload-file ${PGROOT}/lib/postgresql@${PGROOT}/lib/postgresql \
---preload-file ${PGROOT}/password@${PGROOT}/password \
---preload-file ${PGROOT}/PGPASSFILE@/home/web_user/.pgpass \
---preload-file placeholder@${PGROOT}/bin/postgres \
---preload-file placeholder@${PGROOT}/bin/initdb\
-"
 
 # ========================= symbol extractor ============================
 
@@ -352,6 +350,7 @@ export PATH=${WORKSPACE}/build/postgres/bin:${PGROOT}/bin:$PATH
 
 if echo " $*"|grep -q " contrib"
 then
+    mkdir -p ${PGROOT}/dumps
 
     if $WASI
     then
@@ -375,7 +374,7 @@ then
 
     for extdir in postgresql/contrib/*
     do
-        if [ -f ${PGROOT}/dump.vector ]
+        if [ -f ${PGROOT}/dumps/dump.vector ]
         then
             echo "
 
@@ -421,197 +420,52 @@ then
 
 fi
 
- if echo " $*"|grep -q " extra"
-then
-    for extra_ext in  ${EXTRA_EXT:-"vector"}
-    do
-        if $CI
-        then
-            #if [ -d $PREFIX/include/X11 ]
-            if true
-            then
-                echo -n
-            else
-                # install EXTRA sdk
-                . /etc/lsb-release
-                DISTRIB="${DISTRIB_ID}-${DISTRIB_RELEASE}"
-                CIVER=${CIVER:-$DISTRIB}
-                SDK_URL=https://github.com/pygame-web/python-wasm-sdk-extra/releases/download/$SDK_VERSION/python3.13-emsdk-sdk-extra-${CIVER}.tar.lz4
-                echo "Installing $SDK_URL"
-                curl -sL --retry 5 $SDK_URL | tar xvP --use-compress-program=lz4 | pv -p -l -s 15000 >/dev/null
-                chmod +x ./extra/*.sh
-            fi
-        fi
-        echo "======================= ${extra_ext} : $(pwd) ==================="
 
-        ./extra/${extra_ext}.sh || exit 400
-
-        python3 ${PORTABLE}/pack_extension.py
-    done
-fi
-
-# ===========================================================================
-# ===========================================================================
-#                               PGLite
-# ===========================================================================
-# ===========================================================================
-
-
-# run this last so all extensions files can be packaged
-# those include  *.control *.sql and *.so
-# TODO: check if some versionned *.sql files can be omitted
-# TODO: for bigger extensions than pgvector make separate packaging.
-
-if echo " $*"|grep " node"
-then
-    echo "====================== node : $(pwd) ========================"
-    mkdir -p /tmp/sdk/
-
-    # remove versionned symlinks
-    rm ${PGROOT}/lib/lib*.so.? 2>/dev/null
-
-    if $WASI
-    then
-        tar -cpRz ${PGROOT} > /tmp/sdk/postgres-${PG_VERSION}-wasisdk.tar.gz
-    else
-        tar -cpRz ${PGROOT} > /tmp/sdk/postgres-${PG_VERSION}-emsdk.tar.gz
-    fi
-
-fi
-
-# run linkweb after node build because it may remove some wasm .so used by node from fs
-# as they don't need to be in MEMFS since they are fetched.
-
-# include current pglite source for easy local rebuild with just npm run build:js.
-
-if echo " $*"|grep " linkweb"
-then
-
-    # build web version
-    echo "========== linkweb : $(pwd) =================="
-    pushd build/postgres
-        . ${PORTABLE}/linkweb.sh
-    popd
-fi
-
-
-# pglite* also use web build files, so order them last.
-
-
-while test $# -gt 0
-do
-    case "$1" in
-
-        pglite) echo "=================== pglite : $(pwd) ======================="
-            # TODO: SAMs NOTE - Not using this in GitHub action as it doesnt resolve pnpm correctly
-            # replaced with pglite-prep and pglite-bundle-sdk
-
-            pushd ${PGLITE}
-                pnpm install --frozen-lockfile
-
-                mkdir -p $PGLITE/release
-                rm $PGLITE/release/* 2>/dev/null
-
-
-                # copy packed extensions for dist
-                echo "
-
-__________________________ enabled extensions (dlfcn)_____________________________
-"
-    cp -vf ${WEBROOT}/*.tar.gz ${PGLITE}/release/ | wc -l
-echo "
-__________________________________________________________________________________
-"
-
-                # copy wasm web prebuilt artifacts to release folder
-                # TODO: get them from web for nosdk systems.
-
-                cp -vf ${WEBROOT}/postgres.{js,data,wasm} ${PGLITE}/release/
-
-                # debug CI does not use pnpm/npm for building pg, so call the typescript build
-                # part from here
-                #pnpm --filter "pglite^..." build || exit 450
-                pnpm run build:js || exit 476
-                pnpm pack || exit 31
-                packed=$(echo -n electric-sql-pglite-*.tgz)
-
-                mv $packed /tmp/sdk/pg${PG_VERSION}-${packed}
-
-                echo "<html>
-                <body>
-                    <ul>
-                        <li><a href=./pglite/examples/repl.html>PGlite REPL (in-memory)</a></li>
-                        <li><a href=./pglite/examples/repl-idb.html>PGlite REPL (indexedDB)</a></li>
-                        <li><a href=./pglite/examples/notify.html>list/notify test</a></li>
-                        <li><a href=./pglite/examples/index.html>All PGlite Examples</a></li>
-                        <li><a href=./pglite/benchmark/index.html>Benchmarks</a> / <a href=./pglite/benchmark/rtt.html>RTT Benchmarks</a></li>
-                        <li><a href=./postgres.html>Postgres xterm REPL</a></li>
-                    </ul>
-                </body>
-                </html>" > ${WEBROOT}/index.html
-
-            popd
-
-            mkdir -p ${PGROOT}/sdk/packages/ /tmp/web/pglite /tmp/web/repl/
-            cp -r $PGLITE ${PGROOT}/sdk/packages/
-
-            #mkdir /tmp/web/repl/dist-webcomponent -p
-            #cp -r ${WORKSPACE}/packages/pglite-repl/dist-webcomponent /tmp/web/repl/
-
-            if $CI
-            then
-                tar -cpRz ${PGROOT} > /tmp/sdk/pglite-pg${PG_VERSION}.tar.gz
-
-                # build sdk (node)
-                cp /tmp/sdk/postgres-${PG_VERSION}-*.tar.gz ${WEBROOT}/
-
-                # pglite (web)
-                cp /tmp/sdk/pglite-pg${PG_VERSION}.tar.gz ${WEBROOT}/
-
-            fi
-
-            du -hs ${WEBROOT}/*
-        ;;
-
-        pglite-test) echo "================== pglite-test ========================="
-            export PATH=$PATH:$(pwd)/node_modules/.bin
-            pushd ./packages/pglite
-            #npm install -g concurrently playwright ava http-server pg-protocol serve tinytar buffer async-mutex 2>&1 > /dev/null
-            pnpm install --prefix . 2>&1 >/dev/null
-            pnpm run build 2>&1 >/dev/null
-            if pnpm exec playwright install --with-deps 2>&1 >/dev/null
-            then
-                pnpm --filter "pglite^..." test || exit 534
-                pnpm test:web || pnpm test:web || pnpm test:web || exit 535
-            else
-                echo "failed to install web-test env"
-                pnpm --filter "pglite^..." test || exit 538
-            fi
-            pnpm pack
-            popd
-        ;;
-
-        pglite-prep) echo "==================== pglite-prep  =========================="
-            mkdir -p $PGLITE/release
-            #rm $PGLITE/release/*
-
-            # copy packed extensions
-            cp -vf ${WEBROOT}/*.tar.gz ${PGLITE}/release/ | wc -l
-            cp -vf ${WEBROOT}/postgres.{js,data,wasm} $PGLITE/release/
-        ;;
-
-        pglite-bundle-interim) echo "================== pglite-bundle-interim ======================"
-            tar -cpRz ${PGLITE}/release > /tmp/sdk/pglite-interim-${PG_VERSION}.tar.gz
-        ;;
-
-        demo-site) echo "==================== demo-site =========================="
-            ${PORTABLE}/demo-site.sh
-        ;;
-    esac
-    shift
-done
+# only build extra when targeting pglite-wasm .
 
 if [ -f  ${WORKSPACE}/pglite-wasm/build.sh ]
 then
+
+    if echo " $*"|grep -q " extra"
+    then
+        for extra_ext in  ${EXTRA_EXT:-"vector"}
+        do
+            if $CI
+            then
+                #if [ -d $PREFIX/include/X11 ]
+                if true
+                then
+                    echo -n
+                else
+                    # install EXTRA sdk
+                    . /etc/lsb-release
+                    DISTRIB="${DISTRIB_ID}-${DISTRIB_RELEASE}"
+                    CIVER=${CIVER:-$DISTRIB}
+                    SDK_URL=https://github.com/pygame-web/python-wasm-sdk-extra/releases/download/$SDK_VERSION/python3.13-emsdk-sdk-extra-${CIVER}.tar.lz4
+                    echo "Installing $SDK_URL"
+                    curl -sL --retry 5 $SDK_URL | tar xvP --use-compress-program=lz4 | pv -p -l -s 15000 >/dev/null
+                    chmod +x ./extra/*.sh
+                fi
+            fi
+            echo "======================= ${extra_ext} : $(pwd) ==================="
+
+            ./extra/${extra_ext}.sh || exit 400
+
+            python3 ${PORTABLE}/pack_extension.py
+        done
+    fi
+
+    # build pglite initdb/loop/transport/repl
+
+    export PGPRELOAD="\
+--preload-file ${PGROOT}/share/postgresql@${PGROOT}/share/postgresql \
+--preload-file ${PGROOT}/lib/postgresql@${PGROOT}/lib/postgresql \
+--preload-file ${PGROOT}/password@${PGROOT}/password \
+--preload-file ${PGROOT}/PGPASSFILE@/home/web_user/.pgpass \
+--preload-file placeholder@${PGROOT}/bin/postgres \
+--preload-file placeholder@${PGROOT}/bin/initdb\
+"
+
     ${WORKSPACE}/pglite-wasm/build.sh
 fi
+

@@ -6,6 +6,11 @@ export CONTAINER_PATH=${CONTAINER_PATH:-/tmp/fs}
 export DEBUG=${DEBUG:-false}
 export USE_ICU=${USE_ICU:-false}
 
+
+PG_DIST_EXT="${WORKSPACE}/postgresql/dist/extensions-emsdk"
+PG_DIST_PGLITE="${WORKSPACE}/postgresql/dist/pglite-sandbox"
+
+
 #
 #[ -f postgresql-${PG_BRANCH}/configure ] \
 # || git clone --no-tags --depth 1 --single-branch --branch ${PG_BRANCH} https://github.com/pygame-web/postgres postgresql-${PG_BRANCH}
@@ -36,7 +41,7 @@ END
 
     if [ -f build/postgres/libpgcore.a ]
     then
-        for archive in ${CONTAINER_PATH}/tmp/pglite/sdk/*.tar
+        for archive in ${PG_DIST_EXT}/*.tar
         do
             echo "    packing $archive"
             gzip -f -9 $archive
@@ -60,12 +65,14 @@ END
                 rmdir packages/pglite/dist/*
 
                 #update
-                mv -vf ${WORKSPACE}/postgresql-${PG_BRANCH}/pglite.* ${CONTAINER_PATH}/tmp/pglite/sdk/*.tar.gz packages/pglite/release/
+                mv -vf ${WORKSPACE}/postgresql-${PG_BRANCH}/pglite.* packages/pglite/release/
+                mv -vf ${PG_DIST_EXT}/*.tar.gz packages/pglite/release/
             popd
         else
             git clone --no-tags --depth 1 --single-branch --branch pmp-p/pglite-build17 https://github.com/electric-sql/pglite pglite
         fi
 
+        read
 
         # when outside CI use emsdk node
         if [ -d /srv/www/html/pglite-web ]

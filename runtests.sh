@@ -5,7 +5,7 @@ then
     . /opt/python-wasm-sdk/wasm32-bi-emscripten-shell.sh
 fi
 
-pushd pglite/packages/pglite
+pushd postgresql/pglite/packages/pglite
 
     skipt=false
 

@@ -31,6 +31,9 @@ export CONTAINER_PATH=${CONTAINER_PATH:-/tmp/fs}
 export HOME=/tmp
 export PROOT=${PORTABLE}/proot
 
+# git remove empty dirs
+mkdir -p ${WORKDIR}/sdk/dist
+
 # --------------------------------------------------------
 # "docker emulation"
 FROM () {
@@ -368,6 +371,7 @@ __start() {
 	COMMANDS+=" -b /proc/self/fd/1:/dev/stdout"
 	COMMANDS+=" -b /proc/self/fd/2:/dev/stderr"
     COMMANDS+=" -b ${WORKDIR}:/workspace"
+    COMMANDS+=" -b ${WORKDIR}/dist:/tmp/sdk/dist"
 	for f in stat version loadavg vmstat uptime
     do
 		[ -f "$CONTAINER_PATH/proc/.$f" ] && COMMANDS+=" -b $CONTAINER_PATH/proc/.$f:/proc/$f"

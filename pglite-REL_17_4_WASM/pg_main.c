@@ -367,6 +367,7 @@ void pgl_backend() {
     {
 #if PGDEBUG
         fprintf(stdout, "\n\n\n# 483: restarting in single mode after initdb with user '%s' instead of %s\n", getenv("PGUSER"), PGUSER);
+        setenv("PGUSER", PGUSER, 1);
 #endif
         char *single_argv[] = {
             WASM_PREFIX "/bin/postgres",
@@ -380,7 +381,7 @@ void pgl_backend() {
         };
         int single_argc = sizeof(single_argv) / sizeof(char*) - 1;
         optind = 1;
-        RePostgresSingleUserMain(single_argc, single_argv, WASM_USERNAME);
+        RePostgresSingleUserMain(single_argc, single_argv, PGUSER);
 PDEBUG("# 384: initdb faking shutdown to complete WAL/OID states in single mode");
     }
         goto backend_started;
