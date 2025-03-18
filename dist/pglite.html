@@ -171,6 +171,8 @@ globalThis.pgl_conf = pgl_conf
     window.buffer_stdout = ""
     window.flushed_stdout = false
 
+    const PGUSER = "postgres"
+
     async function boot() {
 
         function fnc_stdout(code) {
@@ -266,7 +268,7 @@ globalThis.pgl_conf = pgl_conf
                 case 1:
                     data = "SELECT now(), current_database(), session_user, current_user;"
                     break
-
+/*
                 case 2:
                     data = `
 CREATE EXTENSION IF NOT EXISTS plpgsql;
@@ -299,14 +301,16 @@ CREATE TABLE IF NOT EXISTS test2 (
 
                 case 5:
                     data = `
-CREATE USER test_user WITH PASSWORD 'md5abdbecd56d5fbd2cdaee3d0fa9e4f434';
-ALTER TABLE test2 OWNER TO test_user;
+CREATE USER ${PGUSER} WITH PASSWORD 'md5abdbecd56d5fbd2cdaee3d0fa9e4f434';
+ALTER TABLE test2 OWNER TO ${PGUSER};
 `
                     break
 
                 case 6:
                     data = "NOTIFY template1, 'hello';"
                     break
+
+*/
 
 /*
                 case 3:
@@ -315,33 +319,17 @@ ALTER TABLE test2 OWNER TO test_user;
                     data = "SELECT * FROM pg_extension;"
                     data = "SELECT dictname FROM pg_catalog.pg_ts_dict;"
                     data = "CHECKPOINT;SELECT pg_terminate_backend(42);";
-                case 3:
-                    data = "CREATE DATABASE test_user WITH OWNER = test_user;"
-                    break
-
-                case 4:
-                    data = "CREATE SCHEMA test_user;"
-                    break
-
-                case 5:
-                    data = `CREATE TABLE IF NOT EXISTS test_user.test (
+                    data = "CREATE DATABASE ${PGUSER} WITH OWNER = ${PGUSER};"
+                    data = "CREATE SCHEMA ${PGUSER};"
+                    data = `CREATE TABLE IF NOT EXISTS ${PGUSER}.test (
       id SERIAL PRIMARY KEY,
       number INT
     );
-    INSERT INTO test_user.test (number) VALUES (42);
-    ALTER TABLE test_user.test OWNER TO test_user;
+    INSERT INTO ${PGUSER}.test (number) VALUES (42);
+    ALTER TABLE ${PGUSER}.test OWNER TO ${PGUSER};
 `;
-                case 6:
                     data = "SELECT now(), current_database(), session_user, current_user;"
-                    break
-*/
-/*
-                case 4:
-                    break
-
-                case 6:
                     data = "CREATE EXTENSION pg_stat_statements;"
-                    break
 */
 
             }
@@ -409,7 +397,7 @@ ALTER TABLE test2 OWNER TO test_user;
                     if (idb & (0b0100|0b1000)) {
                         console.log(" #3 found db+user : switch user")
                         // switch role
-                        // vm.readline("SET ROLE test_user;");
+                        // vm.readline("SET ROLE ${PGUSER};");
                     }
                     console.error("Invalid user ?");
                     editconf = false;
@@ -417,17 +405,40 @@ ALTER TABLE test2 OWNER TO test_user;
                     console.warn(" TODO:  create db+user here / callback / throw ")
 /*
                     vm.readline(`
+`
+CREATE OR REPLACE FUNCTION adduser(rolename NAME) RETURNS TEXT AS
+$$
+BEGIN
+    IF NOT EXISTS (SELECT * FROM pg_roles WHERE rolname = rolename) THEN
+        EXECUTE format('CREATE ROLE %I', rolename);
+        RETURN 'CREATE ROLE';
+    ELSE
+        RETURN format('ROLE ''%I'' ALREADY EXISTS', rolename);
+    END IF;
+END;
+$$
+LANGUAGE plpgsql;
+`;
+
 CREATE EXTENSION IF NOT EXISTS postgis;
-CREATE USER test_user WITH PASSWORD 'md5abdbecd56d5fbd2cdaee3d0fa9e4f434';
+CREATE USER ${PGUSER} WITH PASSWORD 'md5abdbecd56d5fbd2cdaee3d0fa9e4f434';
 CREATE TABLE IF NOT EXISTS test (
       id SERIAL PRIMARY KEY,
       number INT
     );
     INSERT INTO test (number) VALUES (42);
-    ALTER TABLE test OWNER TO test_user;
-SET ROLE test_user;
+    ALTER TABLE test OWNER TO ${PGUSER};
+SET ROLE ${PGUSER};
 `);
 */
+
+/*
+                    vm.readline(`
+CREATE USER ${PGUSER} WITH PASSWORD 'md5abdbecd56d5fbd2cdaee3d0fa9e4f434';
+SET ROLE ${PGUSER};
+`);
+*/
+
                 }
 
                 vm.PGDATA = PGDATA
@@ -532,8 +543,8 @@ SET ROLE test_user;
             load_pg_extension: load_pg_extension,
 
             load_package: load_package,
-// "PGDATABASE=test_user",
-            arguments : ["--single", "postgres", "--", "PGDATA=/tmp/pglite/base", "PREFIX=/tmp/pglite", "PGUSER=test_user", "REPL=N"],
+// "PGDATABASE=${PGUSER}",
+            arguments : ["--single", "postgres", "--", "PGDATA=/tmp/pglite/base", "PREFIX=/tmp/pglite", `PGUSER=${PGUSER}`, "REPL=N"],
 
             config : {
                 cdn : "https://pygame-web.github.io/archives/0.9/",
