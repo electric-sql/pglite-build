@@ -1,10 +1,983 @@
-<!doctypehtml><html lang=en-us><head><meta charset=utf-8><meta content="text/html; charset=utf-8"http-equiv=Content-Type><title>PG SHELL TEST</title><style>.emscripten{padding-right:0;margin-left:auto;margin-right:auto;display:block}textarea.emscripten{font-family:monospace;width:80%}div.emscripten{text-align:center}div.emscripten_border{border:1px solid #000}canvas.emscripten{border:0 none;background-color:#000}.spinner{height:50px;width:50px;margin:0 auto;-webkit-animation:rotation .8s linear infinite;-moz-animation:rotation .8s linear infinite;-o-animation:rotation .8s linear infinite;animation:rotation .8s linear infinite;border-left:10px solid #0096f0;border-right:10px solid #0096f0;border-bottom:10px solid #0096f0;border-top:10px solid #6400c8;border-radius:100%;background-color:#c864fa}@-webkit-keyframes rotation{from{-webkit-transform:rotate(0)}to{-webkit-transform:rotate(360deg)}}@-moz-keyframes rotation{from{-moz-transform:rotate(0)}to{-moz-transform:rotate(360deg)}}@-o-keyframes rotation{from{-o-transform:rotate(0)}to{-o-transform:rotate(360deg)}}@keyframes rotation{from{transform:rotate(0)}to{transform:rotate(360deg)}}</style><link href=https://pmp-p.ddns.net/pglite-web/vt/xterm.js rel=prefetch><link href=https://pmp-p.ddns.net/pglite-web/vt/xterm-addon-image.js rel=prefetch><link href=https://pmp-p.ddns.net/pglite-web/vtx.js rel=prefetch><link href=https://pmp-p.ddns.net/pglite-web/tinytar.min.js rel=prefetch><link href=https://pmp-p.ddns.net/wasi/dinovm/defs.js rel=prefetch><link href=https://pmp-p.ddns.net/wasi/dinovm/easywasi.js rel=prefetch><script src=https://pmp-p.ddns.net/pglite-web/tinytar.min.js></script><script type=importmap>{
+<!DOCTYPE html>
+<html lang="en-us">
+
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <title>PG SHELL TEST</title>
+    <style>
+      .emscripten { padding-right: 0; margin-left: auto; margin-right: auto; display: block; }
+      textarea.emscripten { font-family: monospace; width: 80%; }
+      div.emscripten { text-align: center; }
+      div.emscripten_border { border: 1px solid black; }
+      /* the canvas *must not* have any border or padding, or mouse coords will be wrong */
+      canvas.emscripten { border: 0px none; background-color: black; }
+
+      .spinner {
+        height: 50px;
+        width: 50px;
+        margin: 0px auto;
+        -webkit-animation: rotation .8s linear infinite;
+        -moz-animation: rotation .8s linear infinite;
+        -o-animation: rotation .8s linear infinite;
+        animation: rotation 0.8s linear infinite;
+        border-left: 10px solid rgb(0,150,240);
+        border-right: 10px solid rgb(0,150,240);
+        border-bottom: 10px solid rgb(0,150,240);
+        border-top: 10px solid rgb(100,0,200);
+        border-radius: 100%;
+        background-color: rgb(200,100,250);
+      }
+      @-webkit-keyframes rotation {
+        from {-webkit-transform: rotate(0deg);}
+        to {-webkit-transform: rotate(360deg);}
+      }
+      @-moz-keyframes rotation {
+        from {-moz-transform: rotate(0deg);}
+        to {-moz-transform: rotate(360deg);}
+      }
+      @-o-keyframes rotation {
+        from {-o-transform: rotate(0deg);}
+        to {-o-transform: rotate(360deg);}
+      }
+      @keyframes rotation {
+        from {transform: rotate(0deg);}
+        to {transform: rotate(360deg);}
+      }
+
+    </style>
+    <link rel="prefetch" href="https://pmp-p.ddns.net/pglite-web/vt/xterm.js">
+    <link rel="prefetch" href="https://pmp-p.ddns.net/pglite-web/vt/xterm-addon-image.js">
+    <link rel="prefetch" href="https://pmp-p.ddns.net/pglite-web/vtx.js">
+    <link rel="prefetch" href="https://pmp-p.ddns.net/pglite-web/tinytar.min.js">
+    <link rel="prefetch" href="https://pmp-p.ddns.net/wasi/dinovm/defs.js">
+    <link rel="prefetch" href="https://pmp-p.ddns.net/wasi/dinovm/easywasi.js">
+
+    <script src="https://pmp-p.ddns.net/pglite-web/tinytar.min.js"></script>
+
+<script type="importmap">
+{
   "imports": {
     "pglite" : "./pglite.js",
     "easywasi": "https://pmp-p.ddns.net/wasi/dinovm/easywasi.js"
   }
-}</script><script type=module>console.log(" ============= ES6 MODULE ============= ");import initModule from"pglite";async function pgl_conf(o,n){var l=o.os.codec.decode(o.FS.readFile(o.PGDATA+"/postgresql.conf")).split("\n"),e=[],r=[];for(var s in n){for(var c="",t=0;t<l.length;t++)l[t].startsWith(s)?c=l[t]:e.push(l[t]);var i=[];n[s]instanceof Array?(c.length&&console.warn("// TODO extract array from old"),i=n[s]):i.push(n[s].toString());const o=`\n${s} = ${i.join(",")}\n`;c.length?c==o?console.log("no conf change :",o):console.error("EDIT :",c,"->",o):console.log("NEW :",o),r.push(o)}r.length&&(e.push(...r),console.log("BUF",e),o.FS.writeFile(o.PGDATA+"/postgresql.conf",e.join("")),o.FS.syncfs(!1,(o=>{o&&console.error("pgl_conf error:",o)})))}window.initModule=initModule,globalThis.pgl_conf=pgl_conf</script></head><body><hr><figure id=spinner style=overflow:visible><div class=spinner></div><center style=margin-top:.5em><strong>emscripten</strong></center></figure><div class=emscripten id=status>Downloading...</div><div class=emscripten><progress hidden id=progress max=100 value=0></progress></div><div class=emscripten_border hidden><canvas class=emscripten id=canvas oncontextmenu=event.preventDefault() tabindex=-1></canvas></div><hr><div class=emscripten hidden><input type=checkbox id=resize>Resize canvas <input type=checkbox id=pointerLock checked>Lock/hide mouse pointer     <input type=button onclick='Module.requestFullscreen(document.getElementById("pointerLock").checked,document.getElementById("resize").checked)'value=Fullscreen></div><hr><pre>
-pglite.wasi: <a download href=pglite.wasi>Download file</a>
+}
+</script>
 
-pglite.wasi + filesystem: <a download href=pglite-wasi.tar.xz>Download file</a>
-</pre><hr><div id=repl></div><hr><textarea class=emscripten id=output rows=20></textarea><hr><script defer>var statusElement=document.getElementById("status"),progressElement=document.getElementById("progress"),spinnerElement=document.getElementById("spinner");window.buffer_stdout="",window.flushed_stdout=!1;const PGUSER="postgres";try{globalThis.window.is_es6=!0}catch(e){globalThis.window.is_es6=!1}function jsimport(e,t){const s=document.createElement("script");s.setAttribute("type","text/javascript"),s.setAttribute("src",e),t||s.setAttribute("async",!0),document.head.appendChild(s)}async function boot(){function e(e){stderr_on&&(stderr_on=!1,buffer_stdout+="[0m");var t=4==e;if(t)flushed_stdout=!0;else{if(10==e){if(flushed_stdout)return void(flushed_stdout=!1);buffer_stdout+="\r\n",t=!0}flushed_stdout=!1}if(""!=buffer_stdout&&t){if(buffer_stdout.startsWith(n))console.info("[sixel image]"),vm.vt.sixel(buffer_stdout);else{if(buffer_stdout.startsWith("Looks like you are rendering"))return;vm.vt.xterm.write(o(buffer_stdout))}buffer_stdout=""}else t||(buffer_stdout+=String.fromCharCode(e))}function t(e){stderr_on||(stderr_on=!0,vm.vt.xterm.write("[1;3;31m")),10==e?(stderr_on&&(stderr_on=!1,vm.vt.xterm.write("[0m")),vm.vt.xterm.write("\r\n")):vm.vt.xterm.write(String.fromCharCode(e))}window.stderr_on=!1,window.fnc_stdout=e,window.fnc_stderr=t,window.fnc_stdin=function(){if(test_data.length>0){return test_data.shift()}return console.error("pump","EOF"),null},window.test_step=0,window.test_data=[];const s=new TextDecoder,n=String.fromCharCode(27)+"Pq";function o(e){for(var t=[],n=0;n<e.length;n+=1)t.push(e.substr(n,1).charCodeAt(0));return s.decode(new Uint8Array(t))}function r(e){var t=null;switch(test_step){case 0:t="SHOW client_encoding;SHOW shared_preload_libraries;";break;case 1:t="SELECT now(), current_database(), session_user, current_user;"}null!=t?(test_step++,console.log("SQL:",t),vm.readline(t+"\n\n"),setTimeout(r,800)):console.log("SQL:End")}window.b_utf8=o;const a="/tmp/pglite/base";function i(e){e?console.error("fs callback : FS error",e):setTimeout(l,0)}async function l(){await u.load_package("vector","vector.tar.gz"),await u.load_package("uuid-ossp","uuid-ossp.tar.gz"),console.warn("calling initdb");const e=vm._pgl_initdb();console.warn("initdb ==",e);var t=!0;e?1&e?console.error("INITDB failed"):(2&e&&(console.log(" #1 initdb was called"),4&e?(console.log(" #2 found db"),12&e&&console.log(" #3 found db+user : switch user"),console.error("Invalid user ?"),t=!1):console.warn(" TODO:  create db+user here / callback / throw "),vm.PGDATA=a,t&&await pgl_conf(vm,{shared_preload_libraries:["pg_stat_statements"],compute_query_id:"on","pg_stat_statements.max":"10000","pg_stat_statements.track":"all"})),vm._pgl_backend(),setTimeout(r,1500)):console.error("FATAL: INITDB failed to return value")}var c,d,u={WASM_PREFIX:"/tmp/pglite",PGDATA:"/tmp/pglite/base",copyFrom:function(e,t){console.warn("copyFrom:",e,t)},copyTo:function(e,t){console.warn("copyTo:",e,t)},load_pg_extension:function(e,t){tinyTar.untar(t).forEach((function(e){if(!e.name.startsWith(".")){const t=u.WASM_PREFIX+"/"+e.name;if(console.log("    + ",t),e.name.endsWith(".so")){console.warn(t,"scheduled for wasm streaming compilation");const s=(...e)=>{console.log("pgfs:ext OK",t,e)},n=(...e)=>{console.log("pgfs:ext FAIL",t,e)};u.FS.createPreloadedFile(function(e){const t=e.lastIndexOf("/");return t>0?e.substr(0,t):e}(t),e.name.split("/").pop(),e.data,!0,!0,s,n,!1),console.log("createPreloadedFile called for :",t)}else u.FS.writeFile(t,e.data)}})),console.warn("pgfs ext:end",e)},load_package:async function(e,t){var s,n;if(u.FS.analyzePath(t).exists?console.error("PGFS TODO: handle local archives",t):(console.warn("PGFS Fetching:",t),n=await fetch(t)),t.endsWith(".tar")){const e=await n.arrayBuffer();s=new Uint8Array(e)}else{const e=new DecompressionStream("gzip"),t=await n.blob();console.log("gzdata",t.size);const o=t.stream().pipeThrough(e);s=new Uint8Array(await new Response(o).arrayBuffer())}u.load_pg_extension(e,s)},arguments:["--single","postgres","--","PGDATA=/tmp/pglite/base","PREFIX=/tmp/pglite",`PGUSER=${PGUSER}`,"REPL=N"],config:{cdn:"https://pygame-web.github.io/archives/0.9/"},print:(d=document.getElementById("output"),d&&(d.value=""),(...e)=>{var t=e.join(" ");console.log(t),d&&(d.value+=t+"\n",d.scrollTop=d.scrollHeight)}),canvas:(c=document.getElementById("canvas"),c.addEventListener("webglcontextlost",(e=>{alert("WebGL context lost. You will need to reload the page."),e.preventDefault()}),!1),c),stdout:e,stderr:t,preRun:[function(e){console.log("prerun(js)",a),e.FS.mkdir(a),e.FS.mount(e.IDBFS,{autoPersist:!0},a)}],postRun:[function(e){console.log("postrun(js)"),e.FS.syncfs(!0,i)}],locateFile:function(e,t){return console.log("locateFile: "+e+" "+t),t+e},setStatus:e=>{if(u.setStatus.last||(u.setStatus.last={time:Date.now(),text:""}),e!==u.setStatus.last.text){var t=e.match(/([^(]+)\((\d+(\.\d+)?)\/(\d+)\)/),s=Date.now();t&&s-u.setStatus.last.time<30||(u.setStatus.last.time=s,u.setStatus.last.text=e,t?(e=t[1],progressElement.value=100*parseInt(t[2]),progressElement.max=100*parseInt(t[4]),progressElement.hidden=!1,spinnerElement.hidden=!1):(progressElement.value=null,progressElement.max=null,progressElement.hidden=!0,e||(spinnerElement.hidden=!0)),statusElement.innerHTML=e)}},totalDependencies:0,monitorRunDependencies:e=>{this.totalDependencies=Math.max(this.totalDependencies,e),u.setStatus(e?"Preparing... ("+(this.totalDependencies-e)+"/"+this.totalDependencies+")":"All downloads complete.")},readline:function(e){const t=vm.os;if(e.startsWith("?"))setTimeout((async()=>{await t.exec("pg_dump","--help")}),0);else if(e.startsWith("v"))setTimeout((async()=>{await t.exec("pg_dump","--version")}),0);else if(e.startsWith("!"))setTimeout((async()=>{await t.exec("pg_dump","-U","postgres","--inserts","-j","1","-v","-c","-C","-f","/tmp/out.sql","--disable-dollar-quoting","postgres")}),0);else if(e.startsWith("pg_dump "))console.log("RL:",e);else{console.warn("READLINE->postMessage:",e);var s={target:"custom",userData:{type:"stdin",data:e}};globalThis.worker?worker.postMessage(s):u.bc.onmessage(s)}}};u.setStatus("Downloading..."),window.onerror=()=>{u.setStatus("Exception thrown, see JavaScript console"),spinnerElement.style.display="none",u.setStatus=e=>{e&&console.error("[post-exception status] "+e)}},window.vm=u;const{WasmTerminal:p}=await import("https://pmp-p.ddns.net/pglite-web/vtx.js");u.vt=new p("repl",200,60,10),u.bc=new BroadcastChannel("pglite");const m="/tmp/pglite/base/.s.PGSQL.5432.lck.in",g="/tmp/pglite/base/.s.PGSQL.5432.out";u.bc.onmessage=e=>{const t=u.FS;if(e.userData){var s,n=e.userData.data;if(n.byteLength)console.log("binary data, using wire"),u._use_wire(1),s.set(n);else{console.log("string data, using repl/no wire"),u._use_wire(0);s=(new TextEncoder).encode(n)}!function(e,t,s){const n=e.byteLength;var o;if(s<0){u._interactive_write(0),t.writeFile(m,e),t.rename(m,"/tmp/pglite/base/.s.PGSQL.5432.in"),console.log("send_to_pglite(sf):",n),u._interactive_one();try{const e=t.stat(g);console.log("pgreply",e.size);var r=t.open(g,"r");o=new Uint8Array(e.size),t.read(r,o,0,e.size,0),t.close(r),t.unlink(g)}catch(e){console.log("REPL: no reply, see stdout",e)}}else{u._interactive_write(n),u.HEAPU8.set(e,s),console.log("send_to_pglite(cma):",n,"sent to",s),u._interactive_one();const t=n+2,r=t+u._interactive_read();o=u.HEAPU8.subarray(t,r)}}(s,t,-1)}else console.warn("BC(srv):",e)},is_es6?(window.Module=await initModule(u),u.os=await async_wasi_init(u.FS,null,null)):(window.Module=u,jsimport("pglite.js"),console.log("main:",u))}console.warn("ES6 ?",globalThis.window.is_es6),window.addEventListener("load",boot)</script><script type=module>async function fget(e){return await fetch(e).then((e=>e.arrayBuffer()))}const isObject=e=>!("object"!=typeof e||null===e||Array.isArray(e)||e instanceof RegExp||e instanceof Date||e instanceof Set||e instanceof Map),isMapping=e=>"object"==typeof e&&null!==e&&!Array.isArray(e)&&!(e instanceof RegExp)&&!(e instanceof Date)&&e instanceof Set&&e instanceof Map;function update(e,n){let s=new Map([...e]);return n.forEach(((e,n)=>{s.has(n)?s.set(n,combinedMap.get(n)+e):s.set(n,e)})),s}function os_system(e){}function os_sched_yield(){const e="/tmp/pglite/base/.s.PGSQL.5432.in";if(os.FS.analyzePath(e).exists){const n=os.FS.readFileSync(e);vm._interactive_one();const s=vm.FS.stat("/tmp/pglite/base/.s.PGSQL.5432.out");console.log("socket file",n.length,"pgreply",s.size)}else console.log("sched_yield - no aio")}function os_mkdir(e){os.FS.mkdir(e,{recursive:!0,mode:os.umask})}function os_listdir(e){var n=os.FS.readdir(e);console.log(`--------- ${e} -------------`);for(var s=0;s<n.length;s++)console.log(n[s]);console.log("------------------------------")}async function async_wasi_init(e,n,s){if(e||(await configure({mounts:{"/tmp":InMemory}}),e=fs),!e.statSync)for(let n of"\nappendFileSync\nfsyncSync\nlinkSync\nsetFlagsSync\nmkdirSync\nreaddirSync\nreadFileSync\nreadlinkSync\nrenameSync\nrmdirSync\nstatSync\nsymlinkSync\ntruncateSync\nunlinkSync\nutimesSync\nwriteFileSync\n".split("\n")){if(!n.length)continue;const s=n.slice(0,n.length-4);try{e[n]=e[s].bind(e)}catch(o){console.warn("EMSDK FS MISSING :",n,s),e[n]=((...e)=>(console.log("FS missing",n),!0)).bind(e)}}n&&await n(e);const o=new TextDecoder,t=new TextEncoder("utf-8");var i={umask:18,PATH:{},FS:e,system:os_system,codec:{decode:e=>o.decode(e),encode:e=>t.encode(e)},sched_yield:os_sched_yield,exec:os_exec,mkdir:os_mkdir,listdir:os_listdir};return s&&await s(i),globalThis.os=i,i}globalThis.async_wasi_init=async_wasi_init,console.log("Using wasi : easywasi"),console.log("---------------------");import{WasiPreview1}from"easywasi";async function os_exec(e,...n){var s={PWD:"/"};n.length&&isMapping(n[n.length-1])&&update(s,n.pop());var o=[e];o.push(...n);var t=new WasiPreview1({fs:os.FS,args:o,env:s});t.stdout=s.stdout||(e=>vm.vt.xterm.write(os.codec.decode(e)+"\r")),t.stderr=s.stderr||(e=>vm.vt.xterm.write("[1;3;31m"+os.codec.decode(e)+"[0m\r"));const i=`bin/${e}.wasm`;console.log("Loading wasi bin : ",e,"from",i,"in",vm),os.PATH[e]=await WebAssembly.instantiateStreaming(fetch(i),{wasi_snapshot_preview1:t});var c=os.PATH[e];c.wasi=t,c.cmdline=i+" "+n.join(" "),c.codec=s.encoding||os.codec,console.log(c);var a=0;try{a=t.start(c.instance.exports)}catch(e){console.trace(),console.warn("abnormal program termination",e)}return console.log(`${e} ${t.args}  exit code = ${a}`),a}</script></body></html>
+<script type=module>
+    console.log(" ============= ES6 MODULE ============= ");
+    import initModule from "pglite";
+    window.initModule = initModule //(Module)
+
+/*
+config sample expected in options.config :
+
+    {
+        "shared_preload_libraries" : ["pg_stat_statements"],
+        "compute_query_id" : "on",
+        "pg_stat_statements.max" : "10000",
+        "pg_stat_statements.track": "all",
+    }
+
+*/
+
+async function pgl_conf(vm, kv) {
+
+    var lines = vm.os.codec.decode(vm.FS.readFile(vm.PGDATA + "/postgresql.conf")).split('\n');
+
+    var buf = []
+    var newlines = [];
+
+    //return;
+
+    for (var k in kv)
+    {
+        var old = ""
+        for (var line = 0; line < lines.length; line++) {
+            if (lines[line].startsWith(k)) {
+                old = lines[line];
+            } else {
+                buf.push(lines[line])
+            }
+        }
+        var values = []
+        if (kv[k] instanceof Array) {
+            // TODO extract array of , from old
+            if (old.length) {
+                console.warn("// TODO extract array from old")
+            }
+            values = kv[k]
+        } else {
+            values.push(kv[k].toString())
+        }
+
+        const newline = `\n${k} = ${values.join(',')}\n`
+
+        if (!old.length) {
+            console.log("NEW :", newline)
+        } else {
+            if (old==newline)
+                console.log("no conf change :", newline)
+            else
+                console.error("EDIT :",old,'->', newline)
+        }
+        newlines.push(newline)
+    }
+    if (newlines.length) {
+        buf.push(...newlines)
+console.log("BUF", buf)
+        vm.FS.writeFile( vm.PGDATA + "/postgresql.conf", buf.join("") )
+        vm.FS.syncfs(false, (e) => { if (e) console.error("pgl_conf error:", e)})
+    }
+}
+
+globalThis.pgl_conf = pgl_conf
+
+</script>
+</head>
+
+<body>
+    <hr/>
+    <figure style="overflow:visible;" id="spinner"><div class="spinner"></div><center style="margin-top:0.5em"><strong>emscripten</strong></center></figure>
+    <div class="emscripten" id="status">Downloading...</div>
+    <div class="emscripten">
+      <progress value="0" max="100" id="progress" hidden=1></progress>
+    </div>
+
+    <div class="emscripten_border" hidden>
+      <canvas class="emscripten" id="canvas" oncontextmenu="event.preventDefault()" tabindex=-1></canvas>
+    </div>
+
+    <hr/>
+    <div class="emscripten" hidden>
+      <input type="checkbox" id="resize">Resize canvas
+      <input type="checkbox" id="pointerLock" checked>Lock/hide mouse pointer
+      &nbsp;&nbsp;&nbsp;
+      <input type="button" value="Fullscreen" onclick="Module.requestFullscreen(document.getElementById('pointerLock').checked,
+                                                                                document.getElementById('resize').checked)">
+    </div>
+
+<hr><pre>
+pglite.wasi: <a href=pglite.wasi download>Download file</a>
+
+pglite.wasi + filesystem: <a href=pglite-wasi.tar.xz download>Download file</a>
+</pre><hr>
+
+    <div id="repl"></div>
+
+    <hr/>
+    <textarea class="emscripten" id="output" rows="20" ></textarea>
+    <hr>
+
+<script type='text/javascript' defer>
+    var statusElement = document.getElementById('status');
+    var progressElement = document.getElementById('progress');
+    var spinnerElement = document.getElementById('spinner');
+
+    window.buffer_stdout = ""
+    window.flushed_stdout = false
+
+    const PGUSER = "postgres"
+
+    // unsure
+    try {
+        globalThis.window.is_es6 = true
+    } catch (x) {
+        globalThis.window.is_es6 = false
+
+    }
+    console.warn("ES6 ?", globalThis.window.is_es6)
+
+    function jsimport(url, sync) {
+        const jsloader=document.createElement('script')
+        jsloader.setAttribute("type","text/javascript")
+        jsloader.setAttribute("src", url)
+        if (!sync)
+            jsloader.setAttribute('async', true);
+        document.head.appendChild(jsloader)
+    }
+
+    async function boot() {
+
+        function fnc_stdout(code) {
+            if (stderr_on) {
+                stderr_on = false
+                buffer_stdout += '\x1B[0m'
+            }
+
+            var flush = (code == 4)
+
+            if (flush) {
+                flushed_stdout = true
+            } else {
+                if (code == 10) {
+                    if (flushed_stdout) {
+                        flushed_stdout = false
+                        return
+                    }
+                    buffer_stdout += "\r\n";
+                    flush = true
+                }
+                flushed_stdout = false
+            }
+
+            if (buffer_stdout != "") {
+                if (flush) {
+                    if (buffer_stdout.startsWith(sixel_prefix)) {
+                        console.info("[sixel image]");
+                        vm.vt.sixel(buffer_stdout);
+                    } else {
+                        if (buffer_stdout.startsWith("Looks like you are rendering"))
+                            return;
+
+                        vm.vt.xterm.write( b_utf8(buffer_stdout) )
+                    }
+                    buffer_stdout = ""
+                    return
+                }
+            }
+            if (!flush)
+                buffer_stdout += String.fromCharCode(code);
+        }
+
+        function fnc_stderr(c) {
+            if (!stderr_on) {
+                stderr_on = true
+                vm.vt.xterm.write("\x1B[1;3;31m")
+            }
+            if (c==10) {
+                if (stderr_on) {
+                    stderr_on = false
+                    vm.vt.xterm.write('\x1B[0m')
+                }
+                vm.vt.xterm.write("\r\n")
+            } else {
+                vm.vt.xterm.write( String.fromCharCode(c) )
+            }
+        }
+
+       function fnc_stdin() {
+            if (test_data.length>0) {
+                const c = test_data.shift()
+                return c
+            }
+    // should never happen, blocking !
+            console.error("pump", "EOF")
+            return null;
+        }
+
+        window.stderr_on = false
+        window.fnc_stdout = fnc_stdout
+        window.fnc_stderr = fnc_stderr
+        window.fnc_stdin = fnc_stdin
+
+        window.test_step = 0
+        window.test_data = []
+
+        const text_codec = new TextDecoder(); //{ decode : new TextDecoder().decode , encode : new TextEncoder("utf-8").encode }
+        const sixel_prefix = String.fromCharCode(27)+"Pq"
+
+        function b_utf8(s) {
+            var ary = []
+            for ( var i=0; i<s.length; i+=1 ) {
+                ary.push( s.substr(i,1).charCodeAt(0) )
+            }
+            return text_codec.decode(  new Uint8Array(ary) )
+        }
+        window.b_utf8 = b_utf8
+
+        function test_drive(step) {
+            var data = null
+            switch (test_step) {
+                case 0:
+                    data = "SHOW client_encoding;SHOW shared_preload_libraries;"
+                    break
+
+                case 1:
+                    data = "SELECT now(), current_database(), session_user, current_user;"
+                    break
+/*
+                case 2:
+                    data = `
+CREATE EXTENSION IF NOT EXISTS plpgsql;
+CREATE OR REPLACE FUNCTION test_func() RETURNS TEXT AS $$ BEGIN RETURN 'test'; END; $$ LANGUAGE plpgsql;
+CREATE EXTENSION IF NOT EXISTS vector;
+LISTEN template1;
+SELECT test_func();
+`
+                    break
+
+                case 3:
+                      data = `
+CREATE TABLE IF NOT EXISTS test (
+      id SERIAL PRIMARY KEY,
+      number INT
+    );
+    INSERT INTO test (number) VALUES (42);
+`
+                    break
+
+                case 4:
+                      data = `
+CREATE TABLE IF NOT EXISTS test2 (
+      id SERIAL PRIMARY KEY,
+      number INT
+    );
+    INSERT INTO test2 (number) VALUES (42);
+`
+                    break
+
+                case 5:
+                    data = `
+CREATE USER ${PGUSER} WITH PASSWORD 'md5abdbecd56d5fbd2cdaee3d0fa9e4f434';
+ALTER TABLE test2 OWNER TO ${PGUSER};
+`
+                    break
+
+                case 6:
+                    data = "NOTIFY template1, 'hello';"
+                    break
+
+*/
+
+/*
+                case 3:
+                    data = "SELECT now(), current_database(), session_user, current_user;CREATE EXTENSION IF NOT EXISTS postgis;"
+                    data = "SELECT now(), PostGIS_Version();"
+                    data = "SELECT * FROM pg_extension;"
+                    data = "SELECT dictname FROM pg_catalog.pg_ts_dict;"
+                    data = "CHECKPOINT;SELECT pg_terminate_backend(42);";
+                    data = "CREATE DATABASE ${PGUSER} WITH OWNER = ${PGUSER};"
+                    data = "CREATE SCHEMA ${PGUSER};"
+                    data = `CREATE TABLE IF NOT EXISTS ${PGUSER}.test (
+      id SERIAL PRIMARY KEY,
+      number INT
+    );
+    INSERT INTO ${PGUSER}.test (number) VALUES (42);
+    ALTER TABLE ${PGUSER}.test OWNER TO ${PGUSER};
+`;
+                    data = "SELECT now(), current_database(), session_user, current_user;"
+                    data = "CREATE EXTENSION pg_stat_statements;"
+*/
+
+            }
+
+            if (data!=null) {
+                test_step++
+                console.log("SQL:", data)
+                vm.readline(data+"\n\n")
+                setTimeout(test_drive, 800);
+            } else {
+                console.log("SQL:End")
+            }
+
+        }
+
+        const PGDATA="/tmp/pglite/base"
+
+        // []
+        function prerun(vm) {
+            console.log("prerun(js)", PGDATA)
+            vm.FS.mkdir(PGDATA)
+            vm.FS.mount(vm.IDBFS, {autoPersist: true}, PGDATA)
+        }
+
+        function fs_callback(err) {
+            if (!err) {
+                setTimeout(delayed_init, 0)
+            } else {
+                console.error("fs callback : FS error", err)
+            }
+        }
+
+        async function delayed_init() {
+            await Module.load_package("vector", "vector.tar.gz")
+            await Module.load_package("uuid-ossp", "uuid-ossp.tar.gz")
+
+            // await Module.load_package("pg_stat_statements", "pg_stat_statements.tar.gz")
+            // await Module.load_package("postgis", "postgis-3.tar.gz")
+            // await Module.load_package("arrays", "arrays.tar.gz")
+            // await Module.load_package("pg_stat_statements", "pg_stat_statements.tar.gz")
+            // vm._setenv(vm.stringToUTF8OnStack("REPL"),vm.stringToUTF8OnStack("Y"),1)
+
+            console.warn("calling initdb")
+
+            const idb = vm._pgl_initdb()
+
+            console.warn("initdb ==", idb)
+
+            var editconf = true
+
+            if (!idb) {
+                console.error("FATAL: INITDB failed to return value");
+                return
+            }
+
+            if (idb & 0b0001) {
+                console.error("INITDB failed");
+                return
+            }
+
+            if (idb & 0b0010) {
+                console.log(" #1 initdb was called");
+                if (idb & 0b0100 ) {
+                    console.log(" #2 found db")
+
+                    if (idb & (0b0100|0b1000)) {
+                        console.log(" #3 found db+user : switch user")
+                        // switch role
+                        // vm.readline("SET ROLE ${PGUSER};");
+                    }
+                    console.error("Invalid user ?");
+                    editconf = false;
+                } else {
+                    console.warn(" TODO:  create db+user here / callback / throw ")
+/*
+                    vm.readline(`
+`
+CREATE OR REPLACE FUNCTION adduser(rolename NAME) RETURNS TEXT AS
+$$
+BEGIN
+    IF NOT EXISTS (SELECT * FROM pg_roles WHERE rolname = rolename) THEN
+        EXECUTE format('CREATE ROLE %I', rolename);
+        RETURN 'CREATE ROLE';
+    ELSE
+        RETURN format('ROLE ''%I'' ALREADY EXISTS', rolename);
+    END IF;
+END;
+$$
+LANGUAGE plpgsql;
+`;
+
+CREATE EXTENSION IF NOT EXISTS postgis;
+CREATE USER ${PGUSER} WITH PASSWORD 'md5abdbecd56d5fbd2cdaee3d0fa9e4f434';
+CREATE TABLE IF NOT EXISTS test (
+      id SERIAL PRIMARY KEY,
+      number INT
+    );
+    INSERT INTO test (number) VALUES (42);
+    ALTER TABLE test OWNER TO ${PGUSER};
+SET ROLE ${PGUSER};
+`);
+*/
+
+/*
+                    vm.readline(`
+CREATE USER ${PGUSER} WITH PASSWORD 'md5abdbecd56d5fbd2cdaee3d0fa9e4f434';
+SET ROLE ${PGUSER};
+`);
+*/
+
+                }
+
+                vm.PGDATA = PGDATA
+                if (editconf) {
+                    await pgl_conf(vm, {
+                        "shared_preload_libraries" : ["pg_stat_statements"],
+                        "compute_query_id" : "on",
+                        "pg_stat_statements.max" : "10000",
+                        "pg_stat_statements.track": "all",
+                    })
+                }
+            }
+
+            vm._pgl_backend()
+
+            setTimeout(test_drive, 1500)
+        }
+
+        // []
+        function postrun(vm) {
+            console.log("postrun(js)")
+            vm.FS.syncfs(true, fs_callback)
+        }
+
+        // Module.load_package
+        async function load_package(ext, url) {
+                var bytes;
+                var response;
+                if (Module.FS.analyzePath(url).exists) {
+                    console.error("PGFS TODO: handle local archives", url)
+                } else {
+                    console.warn("PGFS Fetching:", url)
+                    response = await fetch(url);
+                }
+
+                if (url.endsWith(".tar")) {
+                    const buffer = await response.arrayBuffer();
+                    bytes = new Uint8Array(buffer);
+                } else {
+                   const ds = new DecompressionStream("gzip");
+                   const gzbytes = await response.blob();
+                     console.log("gzdata", gzbytes.size);
+                     const stream_in = gzbytes.stream().pipeThrough(ds);
+                     bytes = new Uint8Array(await new Response(stream_in).arrayBuffer());
+                }
+                Module.load_pg_extension(ext, bytes);
+        }
+
+        // Module.load_pg_extension
+        function load_pg_extension(ext, bytes) {
+            var data = tinyTar.untar(bytes);
+            data.forEach(function(file) {
+              if (!file.name.startsWith(".")) {
+                  const _file = Module.WASM_PREFIX + "/" + file.name;
+                  console.log("    + ", _file);
+                  if (file.name.endsWith(".so")) {
+                    console.warn(_file, "scheduled for wasm streaming compilation");
+
+                    const ext_ok = (...args) => {
+                      console.log("pgfs:ext OK", _file, args);
+                    };
+
+                    const ext_fail = (...args) => {
+                        console.log("pgfs:ext FAIL", _file, args);
+                    };
+                    function dirname(p) {
+                        const last = p.lastIndexOf("/");
+                        if (last>0)
+                            return p.substr(0,last)
+                        return p;
+                    }
+                    Module.FS.createPreloadedFile(dirname(_file), file.name.split("/").pop(), file.data, true, true, ext_ok, ext_fail, false);
+                    console.log("createPreloadedFile called for :", _file);
+                  } else {
+                    Module.FS.writeFile(_file, file.data);
+                  }
+              }
+            });
+            console.warn("pgfs ext:end", ext);
+        }
+
+        function copyFrom(filename, is_program) {
+            console.warn("copyFrom:", filename, is_program);
+        }
+
+        function copyTo(filename, is_program) {
+            console.warn("copyTo:", filename, is_program);
+        }
+
+        function copyToEnd() {
+            console.warn("copyToEnd");
+        }
+
+        var Module = {
+
+            WASM_PREFIX : "/tmp/pglite",
+            PGDATA : "/tmp/pglite/base",
+
+            copyFrom : copyFrom,
+            copyTo  : copyTo,
+
+            load_pg_extension: load_pg_extension,
+
+            load_package: load_package,
+// "PGDATABASE=${PGUSER}",
+            arguments : ["--single", "postgres", "--", "PGDATA=/tmp/pglite/base", "PREFIX=/tmp/pglite", `PGUSER=${PGUSER}`, "REPL=N"],
+
+            config : {
+                cdn : "https://pygame-web.github.io/archives/0.9/",
+            },
+
+            print: (()=>{
+              var element = document.getElementById('output');
+              if (element) element.value = ''; // clear browser cache
+              return (...args) => {
+                var text = args.join(' ');
+                // These replacements are necessary if you render to raw HTML
+                //text = text.replace(/&/g, "&amp;");
+                //text = text.replace(/</g, "&lt;");
+                //text = text.replace(/>/g, "&gt;");
+                //text = text.replace('\n', '<br>', 'g');
+                console.log(text);
+                if (element) {
+                  element.value += text + "\n";
+                  element.scrollTop = element.scrollHeight; // focus on bottom
+                }
+              };
+
+            })(),
+
+            canvas: (() => {
+              var canvas = document.getElementById('canvas');
+
+              // As a default initial behavior, pop up an alert when webgl context is lost. To make your
+              // application robust, you may want to override this behavior before shipping!
+              // See http://www.khronos.org/registry/webgl/specs/latest/1.0/#5.15.2
+              canvas.addEventListener("webglcontextlost", (e) => { alert('WebGL context lost. You will need to reload the page.'); e.preventDefault(); }, false);
+
+              return canvas;
+            })(),
+    /*
+            stdin : fnc_stdin,
+    */
+            stdout : fnc_stdout,
+            stderr : fnc_stderr,
+
+            preRun : [ prerun ],
+            postRun : [ postrun ],
+
+            locateFile : function(path, prefix) {
+                console.log("locateFile: "+path+' '+prefix);
+                return prefix + path;
+            },
+
+            setStatus: (text) => {
+              if (!Module.setStatus.last) Module.setStatus.last = { time: Date.now(), text: '' };
+              if (text === Module.setStatus.last.text) return;
+              var m = text.match(/([^(]+)\((\d+(\.\d+)?)\/(\d+)\)/);
+              var now = Date.now();
+              if (m && now - Module.setStatus.last.time < 30) return; // if this is a progress update, skip it if too soon
+              Module.setStatus.last.time = now;
+              Module.setStatus.last.text = text;
+              if (m) {
+                text = m[1];
+                progressElement.value = parseInt(m[2])*100;
+                progressElement.max = parseInt(m[4])*100;
+                progressElement.hidden = false;
+                spinnerElement.hidden = false;
+              } else {
+                progressElement.value = null;
+                progressElement.max = null;
+                progressElement.hidden = true;
+                if (!text) spinnerElement.hidden = true;
+              }
+              statusElement.innerHTML = text;
+            },
+            totalDependencies: 0,
+            monitorRunDependencies: (left) => {
+              this.totalDependencies = Math.max(this.totalDependencies, left);
+              Module.setStatus(left ? 'Preparing... (' + (this.totalDependencies-left) + '/' + this.totalDependencies + ')' : 'All downloads complete.');
+            },
+
+            readline : function(line) {
+                const os = vm.os
+                if (line.startsWith('?')){
+                    setTimeout(async()=> { await os.exec("pg_dump", "--help") } , 0 )
+                    return
+                }
+                if (line.startsWith('v')){
+                    setTimeout(async()=> { await os.exec("pg_dump", "--version") } , 0 )
+                    return
+                }
+                if (line.startsWith('!')){
+                    setTimeout(async()=> { await os.exec("pg_dump", "-U", "postgres", "--inserts", "-j", "1", "-v", "-c", "-C", "-f", "/tmp/out.sql", "--disable-dollar-quoting", "postgres") } , 0 )
+                    return
+                }
+
+                if (line.startsWith('pg_dump ')) {
+                    console.log("RL:", line)
+
+                } else {
+                    console.warn("READLINE->postMessage:", line)
+                    var ud = { type : "stdin", data : line }
+                    var event = { target: 'custom', userData: ud }
+
+                    if (globalThis.worker) {
+                        worker.postMessage(event);
+                    } else {
+                        Module.bc.onmessage(event)
+                    }
+
+                }
+
+            }
+          };
+
+          Module.setStatus('Downloading...');
+          window.onerror = () => {
+            Module.setStatus('Exception thrown, see JavaScript console');
+            spinnerElement.style.display = 'none';
+            Module.setStatus = (text) => {
+              if (text) console.error('[post-exception status] ' + text);
+            };
+          };
+
+        //jsimport("tinytar.min.js")
+
+        window.vm = Module
+
+        const { WasmTerminal } = await /**/ import("https://pmp-p.ddns.net/pglite-web/vtx.js")
+
+        Module.vt = new WasmTerminal("repl", 200, 60, 10)
+
+        Module.bc = new BroadcastChannel("pglite")
+
+        const pg_lck = "/tmp/pglite/base/.s.PGSQL.5432.lck.in"
+        const pg_in = "/tmp/pglite/base/.s.PGSQL.5432.in"
+        const pg_out = "/tmp/pglite/base/.s.PGSQL.5432.out"
+
+        function send_to_pglite(encoded, FS, port) {
+            const count = encoded.byteLength
+            var buf
+            if (port<0) {
+                /* as socket file */
+                Module._interactive_write(0)
+                FS.writeFile(pg_lck, encoded)
+                FS.rename(pg_lck, pg_in)
+                console.log("send_to_pglite(sf):", count)
+                Module._interactive_one()
+                try {
+                    const fstat = FS.stat(pg_out)
+                    console.log("pgreply", fstat.size)
+                    var stream = FS.open(pg_out, 'r');
+                    buf = new Uint8Array(fstat.size);
+                    FS.read(stream, buf, 0, fstat.size, 0);
+                    FS.close(stream);
+                    FS.unlink(pg_out)
+                } catch (x) {
+                    console.log("REPL: no reply, see stdout", x)
+                }
+            } else {
+                /* CMA */
+                Module._interactive_write(count)
+                Module.HEAPU8.set(encoded, port)
+                console.log("send_to_pglite(cma):", count, "sent to", port)
+                Module._interactive_one()
+                const msg_start = count + 2
+                const msg_end = msg_start + Module._interactive_read()
+                buf = Module.HEAPU8.subarray(msg_start, msg_end)
+            }
+            //Module.bc.postMessage(buf)
+        }
+
+        Module.bc.onmessage = (ev) => {
+            const FS = Module.FS
+            //console.warn("bc.onmessage:", event)
+            if (ev.userData) {
+                var data = ev.userData["data"]
+                var encodedArray;
+                if (data.byteLength) {
+                    console.log("binary data, using wire")
+                    Module._use_wire(1)
+                    encodedArray.set(data)
+                } else {
+                    console.log("string data, using repl/no wire")
+                    Module._use_wire(0)
+                    const encoder = new TextEncoder();
+                    encodedArray = encoder.encode(data);
+                }
+// sf
+                send_to_pglite(encodedArray, FS, -1)
+// cma
+//                send_to_pglite(encodedArray, FS, Module.cma_port || 1)
+            } else {
+                console.warn("BC(srv):", ev);
+            }
+
+        };
+
+        if (is_es6) {
+            window.Module = await initModule(Module)
+            Module.os = await async_wasi_init(Module.FS, null, null)
+        } else
+        {
+            window.Module = Module
+            jsimport("pglite.js")
+            console.log("main:", Module )
+        }
+
+    }
+
+    window.addEventListener("load", boot )
+
+</script>
+
+<script type="module">
+
+async function fget(url) {
+    return await fetch(url).then((r) => r.arrayBuffer())
+}
+
+const isObject = (value) => {
+  return typeof value === 'object'
+  && value !== null
+  && !Array.isArray(value)
+  && !(value instanceof RegExp)
+  && !(value instanceof Date)
+  && !(value instanceof Set)
+  && !(value instanceof Map)
+}
+
+const isMapping = (value) => {
+  return typeof value === 'object'
+  && value !== null
+  && !Array.isArray(value)
+  && !(value instanceof RegExp)
+  && !(value instanceof Date)
+  && (value instanceof Set)
+  && (value instanceof Map)
+}
+
+function update(map1, map2) {
+    let all = new Map([...map1]);
+
+    map2.forEach((value, key) => {
+        if (all.has(key)) {
+            all.set(key, combinedMap.get(key) + value);
+        } else {
+            all.set(key, value);
+        }
+    });
+
+    return all;
+}
+
+function os_system(cmdline) {
+    // TODO
+}
+
+function os_sched_yield() {
+    const pg_in = "/tmp/pglite/base/.s.PGSQL.5432.in"
+    const pg_out = "/tmp/pglite/base/.s.PGSQL.5432.out"
+    if (os.FS.analyzePath(pg_in).exists){
+        // call interactive one
+        const sf_data = os.FS.readFileSync(pg_in)
+        vm._interactive_one()
+        const fstat = vm.FS.stat(pg_out)
+        console.log("socket file",sf_data.length, "pgreply", fstat.size)
+    } else {
+        console.log('sched_yield - no aio')
+    }
+}
+
+function os_mkdir(path) {
+    os.FS.mkdir(path, { recursive: true, mode: os.umask} )
+}
+
+function os_listdir(path) {
+    var entries = os.FS.readdir(path)
+    console.log(`--------- ${path} -------------`)
+    for (var i=0;i<entries.length;i++) {
+        console.log(entries[i]);
+    }
+    console.log(`------------------------------`)
+}
+
+async function async_wasi_init(root_fs, pre, post) {
+    if (!root_fs) {
+        await configure({
+          mounts: { '/tmp': InMemory, }
+        })
+        root_fs = fs
+    }
+
+    if (!root_fs.statSync) {
+        // MISSING:
+        for (let line of `
+appendFileSync
+fsyncSync
+linkSync
+setFlagsSync
+mkdirSync
+readdirSync
+readFileSync
+readlinkSync
+renameSync
+rmdirSync
+statSync
+symlinkSync
+truncateSync
+unlinkSync
+utimesSync
+writeFileSync
+`.split('\n')){
+            if (!line.length)
+                continue
+            const target = line.slice(0, line.length -4)
+            try {
+                root_fs[line] = root_fs[target].bind(root_fs)
+            } catch (x) {
+                console.warn("EMSDK FS MISSING :", line, target)
+                root_fs[line] = ((...args) => { console.log("FS missing",line); return true}).bind(root_fs)
+            }
+        }
+    }
+
+    if (pre) {
+        await pre(root_fs)
+    }
+
+    const tdec = new TextDecoder()
+    const tenc = new TextEncoder("utf-8")
+    var os = {
+        'umask' : 18,
+        'PATH' : {},
+        'FS'   : root_fs,
+        'system': os_system,
+        'codec' : { decode : (data) => tdec.decode(data) , encode : (data) => tenc.encode(data) },
+        'sched_yield'  : os_sched_yield,
+
+        'exec': os_exec,
+        'mkdir' : os_mkdir,
+        'listdir' : os_listdir,
+    }
+
+    if (post) {
+        await post(os)
+    }
+    globalThis.os = os
+    return os
+}
+globalThis.async_wasi_init = async_wasi_init
+
+    console.log("Using wasi : easywasi")
+    console.log("---------------------")
+
+    import { WasiPreview1 } from 'easywasi'
+
+    async function os_exec(bin, ...stack) {
+        var kw = {PWD: '/'}
+
+        if (stack.length) {
+            if (isMapping(stack[stack.length-1])) {
+                update(kw, stack.pop())
+            }
+        }
+        var argv= [bin]
+            argv.push(...stack)
+
+        var wasi = new WasiPreview1({
+          fs: os.FS,
+          args: argv,
+          env: kw,
+        })
+
+        wasi.stdout = kw["stdout"] || ( (msg) => vm.vt.xterm.write(os.codec.decode(msg)+"\r") )
+        wasi.stderr = kw["stderr"] || ( (msg) => vm.vt.xterm.write('\x1B[1;3;31m' + os.codec.decode(msg) + "\x1B[0m\r") )
+
+        const exe = `bin/${bin}.wasm`
+        console.log("Loading wasi bin : ", bin, "from", exe, "in", vm )
+
+        // await os.FS.writeFile('/pg_dump', '\0', {mode:os.umask})
+        // await os.FS.writeFile('/tmp/pglite/base/.s.PGSQL.5432.lock.in', '\0', {mode:os.umask})
+
+        os.PATH[bin] = await WebAssembly.instantiateStreaming(fetch(exe), {wasi_snapshot_preview1:wasi})
+        var app= os.PATH[bin]
+            app.wasi = wasi
+            app.cmdline = exe+" "+ stack.join(' ')
+            app.codec = kw["encoding"] || os.codec
+        console.log(app)
+        var ec = 0
+        try {
+            ec = wasi.start(app.instance.exports)
+        } catch (x) {
+            console.trace()
+            console.warn("abnormal program termination", x)
+        }
+        console.log(`${bin} ${wasi.args}  exit code = ${ec}`)
+        return ec
+    }
+
+</script>
+
+<!--
+    
+        <script type="module">
+          import initModule from "./pglite.js";
+          initModule(Module);
+        </script>
+        
+-->
+  </body>
+</html>
