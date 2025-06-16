@@ -802,7 +802,7 @@ SET ROLE ${PGUSER};
                 FS.rename(pg_lck, pg_in)
                 console.log("send_to_pglite(sf):", count)
                 Module._interactive_one()
-                try {
+                if (os.FS.analyzePath(pg_in).exists) {
                     const fstat = FS.stat(pg_out)
                     console.log("pgreply", fstat.size)
                     var stream = FS.open(pg_out, 'r');
@@ -810,7 +810,7 @@ SET ROLE ${PGUSER};
                     FS.read(stream, buf, 0, fstat.size, 0);
                     FS.close(stream);
                     FS.unlink(pg_out)
-                } catch (x) {
+                } else {
                     console.log("REPL: no reply, see stdout", x)
                 }
             } else {
