@@ -321,11 +321,14 @@ CREATE TABLE IF NOT EXISTS test (
 `
                     break
 
+/*
                 case 3:
                     data = `
 CREATE EXTENSION IF NOT EXISTS pg_uuidv7;
 `
                     break
+
+/*
 
 /* pg_ivm
                 case 3:
@@ -454,12 +457,11 @@ ALTER TABLE test2 OWNER TO ${PGUSER};
         }
 
         async function delayed_init() {
-            await Module.load_package("vector", "vector.tar.gz")
-            //await Module.load_package("uuid-ossp", "uuid-ossp.tar.gz")
-            await Module.load_package("uuid-ossp", "pg_uuidv7.tar.gz")
+//            await Module.load_package("vector", "vector.tar.gz")
+//            await Module.load_package("uuid-ossp", "pg_uuidv7.tar.gz")
 //            await Module.load_package("pg_ivm", "pg_ivm.tar.gz")
 
-            await Module.load_package("pg_stat_statements", "pg_stat_statements.tar.gz")
+//            await Module.load_package("pg_stat_statements", "pg_stat_statements.tar.gz")
 
             // await Module.load_package("postgis", "postgis-3.tar.gz")
             // await Module.load_package("arrays", "arrays.tar.gz")
@@ -471,7 +473,7 @@ ALTER TABLE test2 OWNER TO ${PGUSER};
 
             console.warn("initdb ==", idb)
 
-            var editconf = true
+            var editconf = false
 
             if (!idb) {
                 console.error("FATAL: INITDB failed to return value");
@@ -728,8 +730,10 @@ SET ROLE ${PGUSER};
                     return
                 }
                 if (line.startsWith('!')){
-                    setTimeout(async()=> { await os.exec("pg_dump", "-U", "postgres", "--inserts", "-j", "1", "-v", "-c", "-C", "-f", "/tmp/out.sql", "--disable-dollar-quoting", "postgres") } , 0 )
-//setTimeout(async()=> { await os.exec("pg_dump", "host=/tmp/pglite/base sslmode=disable user=postgres dbname=template1") } , 0 )
+// setTimeout(async()=> { await os.exec("pg_dump", "-U", "postgres", "--inserts", "-j", "1", "-v", "-c", "-C", "-f", "/tmp/out.sql", "--disable-dollar-quoting", "postgres") } , 0 )
+setTimeout(async()=> { await os.exec("pg_dump", "-U", "postgres", "--inserts", "-Z0", "-j", "1", "-v", "-c", "-C", "-f", "/tmp/out.sql", "--disable-dollar-quoting", "postgres") } , 0 )
+// setTimeout(async()=> { await os.exec("pg_dump", "-U", "postgres", "--inserts", "-j", "1", "-v", "-c", "-C", "--disable-dollar-quoting", "template1") } , 0 )
+// setTimeout(async()=> { await os.exec("pg_dump", "host=/tmp/pglite/base sslmode=disable user=postgres dbname=template1") } , 0 )
                     return
                 }
 
