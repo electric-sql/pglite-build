@@ -321,6 +321,12 @@ CREATE TABLE IF NOT EXISTS test (
 `
                     break
 
+                case 3:
+                    data = `
+CREATE EXTENSION IF NOT EXISTS pg_uuidv7;
+`
+                    break
+
 /* pg_ivm
                 case 3:
                     data = `
@@ -449,7 +455,8 @@ ALTER TABLE test2 OWNER TO ${PGUSER};
 
         async function delayed_init() {
             await Module.load_package("vector", "vector.tar.gz")
-            await Module.load_package("uuid-ossp", "uuid-ossp.tar.gz")
+            //await Module.load_package("uuid-ossp", "uuid-ossp.tar.gz")
+            await Module.load_package("uuid-ossp", "pg_uuidv7.tar.gz")
 //            await Module.load_package("pg_ivm", "pg_ivm.tar.gz")
 
             await Module.load_package("pg_stat_statements", "pg_stat_statements.tar.gz")
@@ -722,6 +729,7 @@ SET ROLE ${PGUSER};
                 }
                 if (line.startsWith('!')){
                     setTimeout(async()=> { await os.exec("pg_dump", "-U", "postgres", "--inserts", "-j", "1", "-v", "-c", "-C", "-f", "/tmp/out.sql", "--disable-dollar-quoting", "postgres") } , 0 )
+//setTimeout(async()=> { await os.exec("pg_dump", "host=/tmp/pglite/base sslmode=disable user=postgres dbname=template1") } , 0 )
                     return
                 }
 
@@ -745,6 +753,7 @@ SET ROLE ${PGUSER};
                         return
 
                     case "cat":
+                        console.warn(`cat "${arg}"`)
                         for (const line of os.codec.decode(vm.FS.readFile(arg)).split("\n")) {
                             vm.vt.xterm.write( line + "\r\n" )
                         }
@@ -784,11 +793,11 @@ SET ROLE ${PGUSER};
 
         const { WasmTerminal } = await /**/ import("https://pmp-p.ddns.net/pglite-web/vtx.js")
 
-        Module.vt = new WasmTerminal("repl", 200, 60, 10)
+        Module.vt = new WasmTerminal("repl", 200, 55, 16)
 
         Module.bc = new BroadcastChannel("pglite")
 
-        const pg_lck = "/tmp/pglite/base/.s.PGSQL.5432.lck.in"
+        const pg_lck = "/tmp/pglite/base/.s.PGSQL.5432.lock.in"
         const pg_in = "/tmp/pglite/base/.s.PGSQL.5432.in"
         const pg_out = "/tmp/pglite/base/.s.PGSQL.5432.out"
 
@@ -802,7 +811,7 @@ SET ROLE ${PGUSER};
                 FS.rename(pg_lck, pg_in)
                 console.log("send_to_pglite(sf):", count)
                 Module._interactive_one()
-                if (os.FS.analyzePath(pg_in).exists) {
+                if (os.FS.analyzePath(pg_out).exists) {
                     const fstat = FS.stat(pg_out)
                     console.log("pgreply", fstat.size)
                     var stream = FS.open(pg_out, 'r');
@@ -913,14 +922,30 @@ function os_system(cmdline) {
 }
 
 function os_sched_yield() {
+console.warn("--os_sched_yield--")
+    const pg_lck = "/tmp/pglite/base/.s.PGSQL.5432.lock.in"
     const pg_in = "/tmp/pglite/base/.s.PGSQL.5432.in"
     const pg_out = "/tmp/pglite/base/.s.PGSQL.5432.out"
+
+    if (os.FS.analyzePath(pg_lck).exists) {
+       os.FS.rename(pg_lck, pg_in)
+       console.log("rename lock for send:", pg_lck,'->', pg_in)
+    }
+
     if (os.FS.analyzePath(pg_in).exists){
         // call interactive one
-        const sf_data = os.FS.readFileSync(pg_in)
+        vm._use_wire(1)
+        vm._interactive_write(0)
+        var sf_data = os.FS.readFileSync(pg_in)
+        console.log("os_sched_yield/send_to_pglite(sf):", pg_in, sf_data.byteLength)
         vm._interactive_one()
-        const fstat = vm.FS.stat(pg_out)
-        console.log("socket file",sf_data.length, "pgreply", fstat.size)
+        if (os.FS.analyzePath(pg_out).exists) {
+            //sf_data = os.FS.readFileSync(pg_out)
+            const fstat = os.FS.stat(pg_out)
+            console.log("socket file", sf_data.length, "pgreply", fstat.size)
+        } else {
+            console.warn('no reply from server')
+        }
     } else {
         console.log('sched_yield - no aio')
     }
@@ -1006,10 +1031,10 @@ writeFileSync
 }
 globalThis.async_wasi_init = async_wasi_init
 
-    console.log("Using wasi : easywasi")
+    console.log("Using wasi : dinovm-wasm32_wasip1 (easywasi)")
     console.log("---------------------")
 
-    import { WasiPreview1 } from 'easywasi'
+    import { wasm32_wasip1 } from 'easywasi'
 
     async function os_exec(bin, ...stack) {
         var kw = {PWD: '/'}
@@ -1022,7 +1047,7 @@ globalThis.async_wasi_init = async_wasi_init
         var argv= [bin]
             argv.push(...stack)
 
-        var wasi = new WasiPreview1({
+        var wasi = new wasm32_wasip1({
           fs: os.FS,
           args: argv,
           env: kw,
@@ -1049,6 +1074,8 @@ globalThis.async_wasi_init = async_wasi_init
         } catch (x) {
             console.trace()
             console.warn("abnormal program termination", x)
+            const dv = new DataView(app.instance.exports.memory.buffer)
+            ec = dv.getUint8(0);
         }
         console.log(`${bin} ${wasi.args}  exit code = ${ec}`)
         return ec
