@@ -733,6 +733,7 @@ SET ROLE ${PGUSER};
                     return
                 }
                 if (line.startsWith('!')){
+
 setTimeout(async()=> { await os.exec("pg_dump", "-U", "postgres", "--inserts", "-Z0", "-j", "1", "-v", "-c", "-C", "-f", "/tmp/out.sql", "--disable-dollar-quoting", "postgres") } , 0 )
 // setTimeout(async()=> { await os.exec("pg_dump", "-U", "postgres", "--inserts", "-j", "1", "-v", "-c", "-C", "-f", "/tmp/out.sql", "--disable-dollar-quoting", "template1") } , 0 )
 // setTimeout(async()=> { await os.exec("pg_dump", "host=/tmp/pglite/base sslmode=disable user=postgres dbname=template1") } , 0 )
