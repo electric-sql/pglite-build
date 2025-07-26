@@ -315,6 +315,10 @@ pg_dump.wasm: <a href=bin/pg_dump.wasm download>Download file</a>
                     break
 
                 case 2:
+                    data = "SELECT now(),* FROM pg_timezone_names WHERE name = current_setting('TIMEZONE');"
+                    break
+
+                case 3:
                       data = `
 CREATE TABLE IF NOT EXISTS test (
       id SERIAL PRIMARY KEY,
@@ -324,18 +328,51 @@ CREATE TABLE IF NOT EXISTS test (
 `
                     break
 
-/*
-                case 3:
-                    data = `
-CREATE EXTENSION IF NOT EXISTS pg_uuidv7;
+                case 4:
+                      data = `
+CREATE TABLE IF NOT EXISTS test (
+      id SERIAL PRIMARY KEY,
+      number INT
+    );
+    INSERT INTO test (number) VALUES (42);
+`
+                    break
+
+                case 5:
+                      data = `
+CREATE EXTENSION IF NOT EXISTS plpgsql;
+CREATE OR REPLACE PROCEDURE raise_exception() LANGUAGE plpgsql AS $$
+BEGIN
+    RAISE 'exception';
+END;
+$$;
+CREATE OR REPLACE FUNCTION safe_cast(text, anyelement) RETURNS anyelement AS $$
+BEGIN
+    $0 := $1;
+    RETURN $0;
+    EXCEPTION WHEN OTHERS THEN
+        RETURN $2;
+END;
+$$ LANGUAGE plpgsql;
+`
+                    break
+
+                case 6:
+                      data = `
+CALL raise_exception();
+`
+                    break
+
+                case 7:
+                      data = `
+SELECT safe_cast('abc'::text, 42::numeric);
 `
                     break
 
 /*
-
-/* pg_ivm
                 case 3:
                     data = `
+CREATE EXTENSION IF NOT EXISTS pg_uuidv7;
 CREATE EXTENSION IF NOT EXISTS pg_ivm;
 `
                     break
@@ -1039,10 +1076,10 @@ writeFileSync
 }
 globalThis.async_wasi_init = async_wasi_init
 
-    console.log("Using wasi : dinovm-wasm32_wasip1 (easywasi)")
+    console.log("Using wasi : dinovm wasm32-wasi-preview1 (easywasi)")
     console.log("---------------------")
 
-    import { wasm32_wasip1 } from 'easywasi'
+    import { wasm32_wasi_preview1 } from 'easywasi'
 
     async function os_exec(bin, ...stack) {
         var kw = {PWD: '/'}
